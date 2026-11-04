@@ -1,0 +1,5 @@
+# WorkBuddy 本地数据与内部文件不入库
+.workbuddy/
+.wbapp_*.genie
+.DS_Store
+node_modules/

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>失物招领 · 智能匹配</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f6fa; color: #222; line-height: 1.6;
+    padding: 16px; max-width: 820px; margin: 0 auto;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #888; font-size: 13px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    padding: 8px 16px; border-radius: 20px; background: #fff; cursor: pointer;
+    border: 1px solid #e0e0e0; font-size: 14px; transition: .2s;
+  }
+  .tab.active { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card {
+    background: #fff; border-radius: 14px; padding: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06); margin-bottom: 16px;
+  }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; color: #444; }
+  input[type=text], textarea, input[type=file] {
+    width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px;
+    font-size: 14px; font-family: inherit; outline: none;
+  }
+  input[type=text]:focus, textarea:focus { border-color: #2d6cdf; }
+  textarea { resize: vertical; min-height: 70px; }
+  button {
+    padding: 10px 20px; border: none; border-radius: 10px; background: #2d6cdf;
+    color: #fff; font-size: 14px; cursor: pointer; font-weight: 600; margin-top: 12px;
+  }
+  button:hover { background: #1f57c0; }
+  button.ghost { background: #eef2fb; color: #2d6cdf; }
+  button.ghost:hover { background: #dde7f9; }
+  .hint { font-size: 12px; color: #999; margin-top: 4px; }
+  .item {
+    background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.05); display: flex; gap: 12px;
+  }
+  .thumb {
+    width: 64px; height: 64px; border-radius: 10px; object-fit: cover;
+    background: #eee; flex-shrink: 0;
+  }
+  .item-body { flex: 1; min-width: 0; }
+  .item-title { font-weight: 600; font-size: 15px; }
+  .item-meta { font-size: 12px; color: #999; margin-top: 2px; }
+  .item-desc { font-size: 13px; color: #555; margin-top: 6px; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    background: #e8f5e9; color: #2e7d32; margin-left: 6px;
+  }
+  .badge.score { background: #fff3e0; color: #e65100; }
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 16px; padding: 20px; max-width: 460px; width: 100%;
+    max-height: 90vh; overflow-y: auto; position: relative;
+  }
+  .modal h3 { font-size: 17px; margin-bottom: 10px; }
+  .modal-close {
+    position: absolute; top: 12px; right: 14px; width: 30px; height: 30px;
+    border-radius: 50%; background: #f0f0f0; color: #666; font-size: 16px;
+    padding: 0; margin: 0; line-height: 30px; text-align: center;
+  }
+  .modal-close:hover { background: #e0e0e0; }
+  .chat { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .msg { padding: 8px 12px; border-radius: 12px; font-size: 13px; max-width: 85%; }
+  .msg.ai { background: #eef2fb; align-self: flex-start; }
+  .msg.user { background: #2d6cdf; color: #fff; align-self: flex-end; }
+  .match-box {
+    background: #e8f5e9; border-radius: 12px; padding: 14px; margin-top: 12px;
+    font-size: 13px;
+  }
+  .match-box b { color: #2e7d32; }
+  .empty { text-align: center; color: #aaa; font-size: 13px; padding: 24px; }
+  img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
+  /* ===== Toast 提示 ===== */
+  #toast-wrap {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+    z-index: 99; display: flex; flex-direction: column; gap: 8px; align-items: center;
+    pointer-events: none;
+  }
+  .toast {
+    padding: 10px 20px; border-radius: 24px; font-size: 13px; color: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); animation: toastIn .25s ease;
+    max-width: 80vw;
+  }
+  .toast.success { background: #2e7d32; }
+  .toast.error   { background: #c62828; }
+  .toast.info    { background: #2d6cdf; }
+  .toast.out { animation: toastOut .3s ease forwards; }
+  @keyframes toastIn  { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+  @keyframes toastOut { to   { opacity: 0; transform: translateY(-10px); } }
+  .btn-del {
+    background: #fdecea; color: #c62828; font-size: 12px; padding: 5px 12px; margin-top: 8px;
+  }
+  .btn-del:hover { background: #f9d7d4; }
+</style>
+</head>
+<body>
+
+<h1>🧭 失物招领 · 智能匹配</h1>
+<div class="sub">发布时隐藏关键细节 · 支持语义模糊检索 + 图像特征检索 · AI 确认后显示位置</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="publish">📤 发布失物</div>
+  <div class="tab" data-tab="search">🔍 找东西</div>
+</div>
+
+<!-- 发布 -->
+<div class="panel active" id="panel-publish">
+  <div class="card">
+    <label>物品名称（公开）</label>
+    <input type="text" id="pub-title" placeholder="例：黑色雨伞 / 蓝色书包">
+    <label>上传物品图片（公开缩略图，细节不公开）</label>
+    <input type="file" id="pub-image" accept="image/*">
+    <div id="pub-preview"></div>
+    <label>物品细节描述（🔒 发布后隐藏，仅用于匹配确认）</label>
+    <textarea id="pub-detail" placeholder="例：伞柄内侧有卡通贴纸，伞骨有一根用胶带缠过，丢失地点在图书馆三楼靠窗座位。"></textarea>
+    <div class="hint">细节不会公开展示，只有检索到高度匹配后，AI 会用这些细节向认领者提问确认。</div>
+    <label>大概丢失位置（🔒 匹配确认后显示）</label>
+    <input type="text" id="pub-location" placeholder="例：图书馆三楼东侧靠窗座位">
+    <button onclick="publish()">发布失物信息</button>
+    <button class="ghost" onclick="exportData()" style="margin-left:8px">📤 导出数据</button>
+    <button class="ghost" onclick="document.getElementById('import-file').click()">📥 导入数据</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+    <div class="hint">导出会把全部物品（含隐藏细节）存成 JSON 文件，可在另一台电脑/浏览器导入，实现数据搬家。</div>
+  </div>
+  <div id="my-posts"></div>
+</div>
+
+<!-- 找东西 -->
+<div class="panel" id="panel-search">
+  <div class="card">
+    <label>方式一：文字描述（支持语义模糊匹配）</label>
+    <input type="text" id="search-text" placeholder="例：一把黑色的伞，柄上有贴纸">
+    <button class="ghost" onclick="searchByText()">🔤 语义检索</button>
+
+    <label style="margin-top:16px">方式二：上传图片检索（图像特征匹配）</label>
+    <input type="file" id="search-image" accept="image/*">
+    <button class="ghost" onclick="searchByImage()">🖼️ 图像检索</button>
+  </div>
+  <div id="search-results"></div>
+</div>
+
+<!-- 匹配确认弹窗 -->
+<div class="modal-mask" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()" title="关闭">✕</button>
+    <h3>🤖 AI 匹配确认</h3>
+    <div class="hint">AI 会先根据物品细节向你提问，回答正确后才显示具体位置（最多 3 次机会）。</div>
+    <div class="chat" id="chat"></div>
+    <div id="modal-action"></div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div id="toast-wrap"></div>
+
+<script>
+/* ================= Toast 提示（替代 alert） ================= */
+function toast(msg, type = 'info', duration = 2400) {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('out');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }, duration);
+}
+
+/* ================= 数据层（localStorage 模拟后端） ================= */
+const DB_KEY = 'lost_found_items_v2';
+function loadDB() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY) || '[]'); }
+  catch (e) { console.error('数据损坏，已重置', e); return []; }
+}
+function saveDB(items) {
+  try {
+    localStorage.setItem(DB_KEY, JSON.stringify(items));
+    return true;
+  } catch (e) {
+    // QuotaExceededError：多发生在图片太大、存储超 5MB 时
+    toast('存储失败：空间不足，请删除部分旧记录', 'error', 3500);
+    return false;
+  }
+}
+
+/* ================= 图片处理：压缩后再存，防止 localStorage 爆掉 ================= */
+function fileToDataURL(file) {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.readAsDataURL(file);
+  });
+}
+// 压缩：最长边 480px、JPEG 0.75，单张约 20-50KB，localStorage 可存上百条
+function compressImage(dataURL, maxSide = 480, quality = 0.75) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      const scale = Math.min(1, maxSide / Math.max(w, h));
+      w = Math.round(w * scale); h = Math.round(h * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(c.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataURL;
+  });
+}
+
+/* ================= 颜色特征提取（8x8 降采样） ================= */
+function extractColorFeature(dataURL) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const s = 8;
+      const c = document.createElement('canvas');
+      c.width = s; c.height = s;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, s, s);
+      const d = ctx.getImageData(0, 0, s, s).data;
+      const feat = [];
+      for (let i = 0; i < d.length; i += 4) feat.push(d[i], d[i + 1], d[i + 2]);
+      res(feat);
+    };
+    img.src = dataURL;
+  });
+}
+function colorDistance(a, b) {
+  if (!a || !b || a.length !== b.length) return Infinity;
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
+  return Math.sqrt(sum);
+}
+// 8x8 图 × 3 通道的理论最大欧氏距离 = sqrt(64*3) * 255 ≈ 3533.4
+// （原代码误用单像素最大距离 441.7，导致任何非几乎相同的图片得分都被压成 0）
+const MAX_COLOR_DIST = Math.sqrt(8 * 8 * 3) * 255;
+
+/* ================= 语义模糊匹配（轻量版） ================= */
+// 把中文按 2-gram 切分 + 关键词同义词扩展，计算 Dice 相似度
+const SYNONYMS = {
+  '伞': ['雨伞', '遮阳伞', 'umbrella'],
+  '书包': ['背包', '双肩包', '包'],
+  '手机': ['电话', 'iphone', '安卓机'],
+  '钥匙': ['钥匙串', 'key'],
+  '钱包': ['皮夹', '钱夹'],
+  '黑色': ['黑', '深色'],
+  '蓝色': ['蓝', '深蓝'],
+  '白色': ['白', '浅色'],
+  '红色': ['红'],
+};
+function expand(text) {
+  let t = text.toLowerCase();
+  for (const [k, arr] of Object.entries(SYNONYMS)) {
+    if (t.includes(k)) t += ' ' + arr.join(' ');
+  }
+  return t;
+}
+function ngrams(text, n = 2) {
+  const t = expand(text).replace(/[\s，。,.!?！？、]/g, '');
+  const set = new Set();
+  if (t.length < n) { if (t) set.add(t); return set; }
+  for (let i = 0; i <= t.length - n; i++) set.add(t.slice(i, i + n));
+  return set;
+}
+function diceSimilarity(a, b) {
+  const A = ngrams(a), B = ngrams(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  return (2 * inter) / (A.size + B.size);
+}
+
+/* ================= 发布 ================= */
+let currentImageData = null;
+let currentColorFeature = null;
+
+document.getElementById('pub-image').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const raw = await fileToDataURL(f);
+  currentImageData = await compressImage(raw);          // 先压缩再存特征和预览
+  currentColorFeature = await extractColorFeature(currentImageData);
+  document.getElementById('pub-preview').innerHTML =
+    `<img class="preview" src="${currentImageData}" alt="预览">`;
+});
+
+function publish() {
+  const title = document.getElementById('pub-title').value.trim();
+  const detail = document.getElementById('pub-detail').value.trim();
+  const location = document.getElementById('pub-location').value.trim();
+  if (!title || !detail) { toast('请填写物品名称和细节描述', 'error'); return; }
+  const items = loadDB();
+  items.push({
+    id: Date.now(),
+    title,
+    detail,          // 🔒 隐藏
+    location,        // 🔒 隐藏
+    image: currentImageData,
+    colorFeature: currentColorFeature,
+    time: new Date().toLocaleString('zh-CN')
+  });
+  if (!saveDB(items)) return; // 存储失败时不清空表单，让用户先删旧数据
+  currentImageData = null; currentColorFeature = null;
+  document.getElementById('pub-title').value = '';
+  document.getElementById('pub-detail').value = '';
+  document.getElementById('pub-location').value = '';
+  document.getElementById('pub-preview').innerHTML = '';
+  document.getElementById('pub-image').value = '';
+  renderMyPosts();
+  toast('✅ 发布成功！细节已隐藏，仅用于智能匹配', 'success');
+}
+
+function renderMyPosts() {
+  const items = loadDB().slice().reverse();
+  const box = document.getElementById('my-posts');
+  if (!items.length) { box.innerHTML = '<div class="empty">还没有发布记录</div>'; return; }
+  box.innerHTML = items.map(it => `
+    <div class="item">
+      ${it.image ? `<img class="thumb" src="${it.image}">` : `<div class="thumb"></div>`}
+      <div class="item-body">
+        <div class="item-title">${esc(it.title)} <span class="badge">已隐藏细节</span></div>
+        <div class="item-meta">${esc(it.time)}</div>
+        <div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>
+        <button class="btn-del" onclick="deletePost(${it.id})">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deletePost(id) {
+  const items = loadDB().filter(x => x.id !== id);
+  saveDB(items);
+  renderMyPosts();
+  toast('已删除该条记录', 'info');
+}
+
+/* ================= 数据导出 / 导入（跨浏览器搬家） ================= */
+function exportData() {
+  const items = loadDB();
+  if (!items.length) { toast('当前没有数据可导出', 'error'); return; }
+  const blob = new Blob([JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), items }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lost_found_data_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`已导出 ${items.length} 条物品数据`, 'success');
+}
+
+function importData(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const incoming = Array.isArray(data) ? data : data.items; // 兼容裸数组或 {items:[...]}
+      if (!Array.isArray(incoming)) throw new Error('格式不对');
+      const existing = loadDB();
+      const existIds = new Set(existing.map(x => x.id));
+      let added = 0;
+      for (const it of incoming) {
+        if (it && it.id != null && it.title && !existIds.has(it.id)) { // 按 id 去重，避免重复导入
+          existing.push(it);
+          existIds.add(it.id);
+          added++;
+        }
+      }
+      saveDB(existing);
+      renderMyPosts();
+      toast(added ? `成功导入 ${added} 条（重复已跳过）` : '没有新增数据（可能全部重复）', added ? 'success' : 'info');
+    } catch (err) {
+      toast('导入失败：不是有效的导出文件', 'error', 3000);
+    }
+    e.target.value = ''; // 允许连续导入同一文件
+  };
+  reader.readAsText(f);
+}
+
+/* ================= 检索 ================= */
+function searchByText() {
+  const q = document.getElementById('search-text').value.trim();
+  if (!q) { toast('请输入描述', 'error'); return; }
+  const items = loadDB();
+  const scored = items.map(it => ({
+    it,
+    score: diceSimilarity(q, it.title + ' ' + it.detail)
+  })).filter(x => x.score > 0.08)
+    .sort((a, b) => b.score - a.score);
+  renderResults(scored, 'text');
+}
+
+async function searchByImage() {
+  const f = document.getElementById('search-image').files[0];
+  if (!f) { toast('请先选择图片', 'error'); return; }
+  const dataURL = await compressImage(await fileToDataURL(f));
+  const feat = await extractColorFeature(dataURL);
+  const items = loadDB();
+  const scored = items.filter(it => it.colorFeature).map(it => {
+    const d = colorDistance(feat, it.colorFeature);
+    const score = Math.max(0, 1 - d / MAX_COLOR_DIST);
+    return { it, score };
+  }).filter(x => x.score > 0.55)
+    .sort((a, b) => b.score - a.score);
+  if (!scored.length) toast('没有颜色特征相近的物品，可换图或用文字检索', 'info');
+  renderResults(scored, 'image');
+}
+
+function renderResults(scored, mode) {
+  const box = document.getElementById('search-results');
+  if (!scored.length) {
+    box.innerHTML = '<div class="empty">没有找到匹配的失物，换个描述试试？</div>';
+    return;
+  }
+  box.innerHTML = scored.map(({ it, score }) => `
+    <div class="item">
+      ${it.image ? `<img class="thumb" src="${it.image}">` : `<div class="thumb"></div>`}
+      <div class="item-body">
+        <div class="item-title">${esc(it.title)}
+          <span class="badge score">匹配度 ${(score * 100).toFixed(0)}%</span>
+        </div>
+        <div class="item-meta">${mode === 'text' ? '语义检索' : '图像特征检索'} · ${esc(it.time)}</div>
+        <div class="item-desc">🔒 位置与细节需确认后显示</div>
+        <button class="ghost" style="margin-top:8px" onclick="openConfirm(${it.id})">认领 / 确认匹配</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ================= AI 确认流程 ================= */
+let confirmState = null;
+const MAX_ATTEMPTS = 3;   // 最多回答 3 次
+
+function openConfirm(id) {
+  const it = loadDB().find(x => x.id === id);
+  if (!it) { toast('该记录已不存在', 'error'); return; }
+  confirmState = { item: it, attempts: 0 };
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '';
+  document.getElementById('modal-action').innerHTML = '';
+  document.getElementById('modal').classList.add('show');
+  const q = buildQuestion(it.detail);
+  addMsg('ai', `你好，我来核实一下。这件「${it.title}」${q}`);
+  addInput();
+}
+
+function buildQuestion(detail) {
+  // 从细节里抽取一个信息点提问（简单启发式）
+  const keywords = ['贴纸','颜色','图案','地点','座位','品牌','标记','破损','挂件','胶带','名字','标签'];
+  for (const k of keywords) {
+    const idx = detail.indexOf(k);
+    if (idx >= 0) {
+      const start = Math.max(0, idx - 6);
+      const frag = detail.slice(start, idx + k.length + 6);
+      return `它的细节里提到「${frag.trim()}」，你能描述一下这个特征吗？`;
+    }
+  }
+  return `请描述一下物品的独有特征（比如颜色、标记、破损处）？`;
+}
+
+function addMsg(role, text) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addInput() {
+  const box = document.getElementById('modal-action');
+  const remain = MAX_ATTEMPTS - confirmState.attempts;
+  box.innerHTML = `
+    <input type="text" id="answer-input" placeholder="输入你的回答…（剩 ${remain} 次机会）" style="margin-top:10px">
+    <button onclick="submitAnswer()">提交回答</button>
+  `;
+  // 弹窗提问后自动聚焦输入框
+  const input = document.getElementById('answer-input');
+  input.focus();
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAnswer(); });
+}
+
+function submitAnswer() {
+  const input = document.getElementById('answer-input');
+  if (!input) return;
+  const ans = input.value.trim();
+  if (!ans) { toast('请先输入回答', 'error'); return; }
+  addMsg('user', ans);
+  input.value = '';
+  confirmState.attempts++;
+  const { item } = confirmState;
+  // 只用相似度判断（原代码 ans.length>=6 直接放行，任何长回答都能骗过）
+  const sim = diceSimilarity(ans, item.detail);
+  if (sim >= 0.18) {
+    addMsg('ai', '✅ 特征吻合，匹配确认成功！已为你显示具体位置：');
+    const box = document.getElementById('modal-action');
+    box.innerHTML = `
+      <div class="match-box">
+        <div>📍 <b>存放/发现位置：</b>${esc(item.location || '发布者未填写')}</div>
+        <div style="margin-top:6px">📞 已通知发布者，请留意联系。</div>
+        <div style="margin-top:6px;color:#888">物品名称：${esc(item.title)}</div>
+      </div>
+      <button onclick="closeModal()">完成</button>
+    `;
+    toast('🎉 匹配确认成功', 'success');
+  } else if (confirmState.attempts >= MAX_ATTEMPTS) {
+    addMsg('ai', '❌ 回答与物品细节差异较大，次数已用完。为保护失主隐私，请联系发布者线下核实。');
+    document.getElementById('modal-action').innerHTML =
+      `<button class="ghost" onclick="closeModal()">关闭</button>`;
+  } else {
+    addMsg('ai', '❌ 描述与物品细节差异较大，请再想想它的独有特征（颜色、标记、破损等）。');
+    addInput();
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  confirmState = null;
+}
+
+/* 点击遮罩或按 Esc 关闭弹窗 */
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('modal').classList.contains('show')) closeModal();
+});
+
+/* 检索框回车触发 */
+document.getElementById('search-text').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchByText();
+});
+
+/* ================= 工具 ================= */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ================= Tab 切换 ================= */
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+/* 初始化 */
+renderMyPosts();
+</script>
+</body>
+</html>
