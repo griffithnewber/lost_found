@@ -236,3 +236,7 @@ img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
   .modal { padding: 16px; }
   .modal-mask { padding: 10px; }
 }
+
+/* ---- A · 已找回记录的归档样式 ---- */
+.item.archived { opacity: .68; }
+.item.archived .thumb { filter: grayscale(.5); }

@@ -1,9 +1,9 @@
 /**
  * assets/mailbox.js —— 用户信箱（A 拥有）
  *
- * 每个登录用户都有信箱，两个分区：
- *   收件：我发布的物品收到的留言（我是发布者）→ 打开即发布者视角线程
- *   发件：我以认领者身份发出的留言 → 打开即认领者视角线程
+ * 每个登录用户都有信箱：一个会话列表。
+ * 凡是「我发布的物品收到的留言」或「我发出的留言」，都归入同一个会话，
+ * 按物品分组、按最近时间排序；点开即进入对应视角的对话线程。
  *
  * 对外接口：LF.mailbox.render()
  */
@@ -44,52 +44,54 @@
     var byId = {};
     items.forEach(function (it) { byId[it.id] = it; });
 
-    var received = {};   // itemId -> [msg]  我发布的物品收到的
-    var sent = {};       // itemId -> [msg]  我发出去的
+    // 与我相关的会话：我发布的物品收到留言，或我发出的留言
+    var threads = {};   // itemId -> [msg]
     msgs.forEach(function (m) {
       var it = byId[m.itemId];
       if (!it) return;
-      if (it.ownerId === me && m.senderId !== me) {
-        (received[m.itemId] = received[m.itemId] || []).push(m);
-      }
-      if (m.senderId === me) {
-        (sent[m.itemId] = sent[m.itemId] || []).push(m);
-      }
+      var involved = m.senderId === me || (it.ownerId === me && m.senderId !== me);
+      if (involved) (threads[m.itemId] = threads[m.itemId] || []).push(m);
     });
 
-    function section(title, groups, viewerRole) {
-      var ids = Object.keys(groups);
-      if (!ids.length) {
-        return '<h4 class="mb-h">' + title + '</h4><div class="empty mb-sub">暂无</div>';
-      }
-      return '<h4 class="mb-h">' + title + '</h4>' + ids.map(function (id) {
-        var it = byId[id];
-        var list = groups[id];
-        var last = list[list.length - 1];
-        return '' +
-          '<div class="item mb-item">' +
-          (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
-          '<div class="item-body">' +
-          '<div class="item-title">' + esc(it.title) +
-          (it.status === 'returned' ? ' <span class="badge">已完成</span>' : ' <span class="badge score">进行中</span>') +
-          '</div>' +
-          '<div class="item-meta">' + list.length + ' 条 · 最近：' + esc(fmtTime(last.createdAt)) + '</div>' +
-          '<div class="item-desc">' + esc((last.senderId === me ? '我：' : '对方：') + last.content).slice(0, 60) + '</div>' +
-          '<button class="ghost" style="margin-top:8px" data-mb-open="' + id + '" data-mb-role="' + viewerRole + '">打开对话</button>' +
-          '</div></div>';
-      }).join('');
+    var ids = Object.keys(threads).sort(function (a, b) {
+      var ta = threads[a][threads[a].length - 1].createdAt || '';
+      var tb = threads[b][threads[b].length - 1].createdAt || '';
+      return ta < tb ? 1 : -1;                      // 最近有动静的排前面
+    });
+
+    if (!ids.length) {
+      box.innerHTML = '<div class="empty">信箱还是空的<br>' +
+        '<span class="hint">你发布的物品被人留言、或你去联系别人后，会话会出现在这里</span></div>';
+      return;
     }
 
-    box.innerHTML =
-      section('📥 收件（我发布的物品收到的留言）', received, 'owner') +
-      '<div style="height:18px"></div>' +
-      section('📤 发件（我发出的认领留言）', sent, 'finder');
+    box.innerHTML = '<h4 class="mb-h">📬 全部会话（跟着账号走，换设备也能看）</h4>' + ids.map(function (id) {
+      var it = byId[id];
+      var list = threads[id];
+      // 取时间最新的一条作为摘要（防止消息到达顺序与时间顺序不一致）
+      var last = list.slice().sort(function (a, b) {
+        return (a.createdAt || '') < (b.createdAt || '') ? -1 : 1;
+      }).pop();
+      var mine = last.senderId === me;
+      return '' +
+        '<div class="item mb-item' + (it.status === 'returned' ? ' archived' : '') + '">' +
+        (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
+        '<div class="item-body">' +
+        '<div class="item-title">' + esc(it.title) +
+        (it.status === 'returned' ? ' <span class="badge">已完成</span>' : ' <span class="badge score">进行中</span>') +
+        '</div>' +
+        '<div class="item-meta">' + list.length + ' 条 · 最近：' + esc(fmtTime(last.createdAt)) + '</div>' +
+        '<div class="item-desc">' + esc((mine ? '我：' : '对方：') + last.content).slice(0, 60) + '</div>' +
+        '<button class="ghost" style="margin-top:8px" data-mb-open="' + id + '">打开对话</button>' +
+        '</div></div>';
+    }).join('');
 
     box.querySelectorAll('[data-mb-open]').forEach(function (b) {
       b.addEventListener('click', function () {
         var it = byId[Number(b.getAttribute('data-mb-open'))];
-        var role = b.getAttribute('data-mb-role');
-        if (it) LF.contact.openThread(it, role);
+        if (!it) return;
+        // 我是发布者 → 发布者视角（可回复、可确认认领）；否则 → 认领者视角
+        LF.contact.openThread(it, it.ownerId === me ? 'owner' : 'finder');
       });
     });
   };

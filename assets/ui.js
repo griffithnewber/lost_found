@@ -217,18 +217,29 @@
       var msgBtn = '<button class="ghost btn-msg" data-thread="' + it.id + '">💬 留言<span class="badge hidden" data-msgcount="' + it.id + '"></span></button>';
       var statusText = { open: '待认领', claimed: '有人认领', returned: '已找回' }[it.status || 'open'] || it.status;
       var typeText = it.postType === 'found' ? '拾者发布' : '失者发布';
+      var returned = it.status === 'returned';
+      // 已找回 = 完结归档：隐藏细节徽章失去意义，换成找回日期
+      var badges = ' <span class="badge">' + typeText + '</span>';
+      if (returned) {
+        var d = it.claimAt ? new Date(it.claimAt) : null;
+        var when = d && !isNaN(d.getTime())
+          ? d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+          : '';
+        badges += ' <span class="badge">✅ ' + when + '已找回</span>';
+      } else {
+        badges += ' <span class="badge">已隐藏细节</span>';
+        badges += ' <span class="badge score">' + LF.ui.esc(statusText) + '</span>';
+      }
       return '' +
-        '<div class="item">' +
+        '<div class="item' + (returned ? ' archived' : '') + '">' +
         LF.ui.thumbHTML(it) +
         '<div class="item-body">' +
-        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) +
-        ' <span class="badge">' + typeText + '</span>' +
-        ' <span class="badge">已隐藏细节</span>' +
-        ' <span class="badge' + (it.status === 'returned' ? '' : ' score') + '">' + LF.ui.esc(statusText) + '</span>' +
-        '</div>' +
+        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) + badges + '</div>' +
         '<div class="item-meta">' + LF.ui.esc(it.time || '') + '</div>' +
         LF.ui.noticeHTML(it) +
-        '<div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>' +
+        (returned
+          ? '<div class="item-desc">🎉 物品已顺利找回，已从广场下架</div>'
+          : '<div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>') +
         '<div class="item-ops">' + msgBtn + delBtn + '</div>' +
         '</div></div>';
     }).join('');
