@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="assets/styles.css">
 <link rel="stylesheet" href="assets/contact.css">
 <link rel="stylesheet" href="assets/square.css">
+<link rel="stylesheet" href="assets/mailbox.css">
 </head>
 <body>
 
@@ -16,26 +17,33 @@
 <div class="sub">
   多人共享云端数据 · AI 语义检索与认领核验
   <span class="sync-flag" id="cloud-status">⏳ 正在连接云端…</span>
+  <span id="auth-area"></span>
 </div>
 
 <div class="tabs">
   <div class="tab active" data-tab="publish">📤 发布失物</div>
   <div class="tab" data-tab="search">🔍 找东西</div>
   <div class="tab" data-tab="square">🏛️ 广场</div>
+  <div class="tab" data-tab="mailbox">📬 信箱</div>
 </div>
 
 <!-- 发布 -->
 <div class="panel active" id="panel-publish">
   <div class="card">
+    <label>我是…</label>
+    <div class="post-type-row">
+      <button type="button" class="ghost post-type active" data-type="lost">😢 我丢了东西（失者发布）</button>
+      <button type="button" class="ghost post-type" data-type="found">🙋 我捡到了东西（拾者发布）</button>
+    </div>
     <label>物品名称（公开）</label>
     <input type="text" id="pub-title" placeholder="例：黑色雨伞 / 蓝色书包">
     <label>上传物品图片（公开缩略图，AI 会自动生成特征描述）</label>
     <input type="file" id="pub-image" accept="image/*">
     <div id="pub-preview"></div>
-    <label>物品细节描述（🔒 发布后隐藏，仅用于匹配确认）</label>
+    <label id="pub-detail-label">物品细节描述（🔒 发布后隐藏，仅用于匹配确认）</label>
     <textarea id="pub-detail" placeholder="例：伞柄内侧有卡通贴纸，伞骨有一根用胶带缠过，丢失地点在图书馆三楼靠窗座位。"></textarea>
-    <div class="hint">细节不会公开展示，AI 会用这些细节生成只有你答得上来的核实问题。</div>
-    <label>大概丢失位置（🔒 匹配确认后显示）</label>
+    <div class="hint" id="pub-detail-hint">细节不会公开展示，AI 会用这些细节生成只有真正主人／拾到者答得上来的核实问题。</div>
+    <label id="pub-location-label">大概丢失位置（🔒 匹配确认后显示）</label>
     <input type="text" id="pub-location" placeholder="例：图书馆三楼东侧靠窗座位">
     <button id="btn-publish">发布失物信息</button>
     <button class="ghost" id="btn-refresh" style="margin-left:8px">🔄 同步云端</button>
@@ -68,6 +76,14 @@
   <div id="square-list"></div>
 </div>
 
+<!-- 信箱 -->
+<div class="panel" id="panel-mailbox">
+  <div class="card">
+    <label>📬 我的信箱（收件与发件都会跟着账号走）</label>
+    <div id="mailbox-body"></div>
+  </div>
+</div>
+
 <!-- 匹配确认弹窗 -->
 <div class="modal-mask" id="modal">
   <div class="modal">
@@ -92,5 +108,7 @@
 <script src="assets/app.js"></script>
 <script src="assets/contact.js"></script>
 <script src="assets/square.js"></script>
+<script src="assets/auth.js"></script>
+<script src="assets/mailbox.js"></script>
 </body>
 </html>

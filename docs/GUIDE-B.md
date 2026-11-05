@@ -328,3 +328,31 @@ git push
 - 发布成功后生成分享卡片（截图/二维码），方便发到班级群。
 
 有拿不准的地方，直接在群里问，或者把报错贴给组长。
+
+---
+
+## 9. 2026-11-05 下午更新：A 刚上线了什么，B 接下来做什么
+
+A 新增（你只调用、不修改）：`assets/auth.js`（登录注册）、`assets/mailbox.js`（信箱）、广场、失者/拾者发布类型。
+
+### 云端新增能力（api.js 已封装好，直接用）
+
+- `LF.auth.login(u,p)` / `register(u,p)` / `logout()` / `user()` / `userId()`
+- 登录/退出后会广播 `lf:auth` 事件（app.js 已监听刷新“我的发布”）
+- 发布时带 `postType: 'lost' | 'found'`（失者发布 / 拾者发布）
+- 物品与留言卡片上会自动出现「失者发布 / 拾者发布」徽标（ui.js / square.js 已加）
+
+### B 的任务清单（更新版，按顺序）
+
+1. **双入口路由（更新）**：「我丢了东西」→ 发布面板，并自动把 post-type 切到 `lost`（触发 `.post-type[data-type="lost"]` 的 click 即可）；「我捡到了东西」→ **广场**（`panel-square`）。做完这条，B 线第一阶段就齐了。
+2. **粘贴 + 拖拽上传**（原任务不变，见第 2 节）。
+3. **分步气泡录入**：第一步就是身份选择（丢失 / 捡到），与 post-type 联动；后续步骤文案随类型变化（“丢失位置” vs “拾获位置”）。
+4. **定位按钮**（原任务不变，注意合规三条）。
+5. **样式打磨**：登录弹窗（auth.js 动态创建，样式类在 `assets/mailbox.css`）、信箱卡片、post-type 按钮组、广场卡片徽标布局。可以把 mailbox.css / square.css / contact.css 的内容合并进 styles.css 统一管理，**但类名和 data-* 属性别改**。
+6. **移动端适配**：广场/信箱卡片在 375px 宽度下不横向滚动。
+
+### ⚠️ A 加在 B 的文件里的东西，改样式时别删
+
+- `app.js`：`.post-type` 按钮切换逻辑、`lf:auth` 监听、`lf:changed` 监听
+- `ui.js`：卡片上的「失者发布 / 拾者发布」徽标、留言角标、`data-thread` / `data-msgcount`
+- `index.html`：`auth-area`、`panel-mailbox`、`panel-square`、post-type 按钮组

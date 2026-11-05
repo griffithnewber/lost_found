@@ -128,11 +128,13 @@
         : '';
       var msgBtn = '<button class="ghost btn-msg" data-thread="' + it.id + '">💬 留言<span class="badge hidden" data-msgcount="' + it.id + '"></span></button>';
       var statusText = { open: '待认领', claimed: '有人认领', returned: '已找回' }[it.status || 'open'] || it.status;
+      var typeText = it.postType === 'found' ? '拾者发布' : '失者发布';
       return '' +
         '<div class="item">' +
         (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
         '<div class="item-body">' +
         '<div class="item-title">' + LF.ui.esc(it.title) +
+        ' <span class="badge">' + typeText + '</span>' +
         ' <span class="badge">已隐藏细节</span>' +
         ' <span class="badge' + (it.status === 'returned' ? '' : ' score') + '">' + LF.ui.esc(statusText) + '</span>' +
         '</div>' +
@@ -161,6 +163,7 @@
         (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
         '<div class="item-body">' +
         '<div class="item-title">' + LF.ui.esc(it.title) +
+        ' <span class="badge">' + (it.postType === 'found' ? '拾者发布' : '失者发布') + '</span>' +
         ' <span class="badge' + labelCls + '">' + LF.ui.esc(label) + '</span>' +
         '</div>' +
         '<div class="item-meta">' + LF.ui.esc(meta.methodText || '') + ' · ' + LF.ui.esc(it.time || '') + '</div>' +

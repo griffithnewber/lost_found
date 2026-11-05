@@ -52,6 +52,7 @@
       aiDesc: r.ai_desc || '',
       aiTags: Array.isArray(r.ai_tags) ? r.ai_tags : (r.ai_tags || []),
       status: r.status || 'open',
+      postType: r.post_type || 'lost',
       ownerId: r.owner_id || '',
       claimAt: r.claim_at || null,
       time: r.pub_time || '',
@@ -69,6 +70,7 @@
       ai_desc: item.aiDesc || '',
       ai_tags: item.aiTags || [],
       status: item.status || 'open',
+      post_type: item.postType || 'lost',
       owner_id: item.ownerId || '',
       pub_time: item.time || new Date().toLocaleString('zh-CN')
     };
@@ -207,7 +209,8 @@
         role: msg.role || 'finder',
         name: msg.name || '',
         contact: msg.contact || '',
-        content: msg.content
+        content: msg.content,
+        sender_id: msg.senderId || ''
       }).select();
       if (res.error) throw res.error;
       return { ok: true, message: rowToMsg(res.data[0]) };
@@ -217,8 +220,12 @@
     }
   };
 
-  /** 本浏览器的固定身份（C 的认领归属、防误删都基于它） */
+  /** 当前身份：已登录用账号 ID，否则回退到本机设备 ID */
   LF.api.ownerId = function () {
+    if (window.LF && LF.auth && LF.auth.userId) {
+      var uid = LF.auth.userId();
+      if (uid) return uid;
+    }
     var k = 'lf_owner_id';
     var id = localStorage.getItem(k);
     if (!id) {

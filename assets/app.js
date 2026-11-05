@@ -14,6 +14,7 @@
   var state = {
     image: null,          // 发布用压缩图
     colorFeature: null,   // 发布用颜色特征
+    postType: 'lost',     // lost=失者发布 / found=拾者发布
     item: null,           // 当前认领中的物品
     question: '',         // AI 生成的问题
     attempts: 0
@@ -57,6 +58,7 @@
       aiDesc: aiDesc,
       aiTags: aiTags,
       status: 'open',
+      postType: state.postType,
       ownerId: LF.api.ownerId(),
       time: new Date().toLocaleString('zh-CN')
     });
@@ -193,6 +195,24 @@
 
   /* ================= 事件绑定 ================= */
   function bind() {
+    // 发布类型切换：失者发布 / 拾者发布
+    document.querySelectorAll('.post-type').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.postType = b.getAttribute('data-type') || 'lost';
+        document.querySelectorAll('.post-type').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        var found = state.postType === 'found';
+        var locLabel = document.getElementById('pub-location-label');
+        var pubBtn = document.getElementById('btn-publish');
+        var detailHint = document.getElementById('pub-detail-hint');
+        if (locLabel) locLabel.textContent = (found ? '拾获位置' : '大概丢失位置') + '（🔒 匹配确认后显示）';
+        if (pubBtn) pubBtn.textContent = found ? '发布拾获信息' : '发布失物信息';
+        if (detailHint) detailHint.textContent = found
+          ? '细节不会公开展示。AI 会用它出题核实「来认领的人是不是真正的失主」。'
+          : '细节不会公开展示。AI 会用它出题核实「来认领的人是不是真的捡到了它」。';
+      });
+    });
+
     var pubImage = el('pub-image');
     if (pubImage) pubImage.addEventListener('change', function (e) { onPickPublishImage(e.target.files[0]); });
 
@@ -230,6 +250,9 @@
 
     // 认领留言闭环在 contact.js 里处理完后会广播，这里统一刷新列表
     document.addEventListener('lf:changed', function () { renderMyPosts(); });
+
+    // 登录 / 退出后，“我的发布”跟着账号切换
+    document.addEventListener('lf:auth', function () { renderMyPosts(); });
 
     // Tab 切换
     document.querySelectorAll('.tab').forEach(function (t) {      t.addEventListener('click', function () {

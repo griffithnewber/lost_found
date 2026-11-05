@@ -1,0 +1,21 @@
+/* assets/mailbox.css —— 信箱 / 登录入口 / 发布类型选择（A 拥有，与 styles.css 分离） */
+
+/* 顶部登录入口 */
+.auth-user { color: #2d6cdf; font-weight: 600; margin-left: 8px; }
+.auth-link { margin-left: 8px; color: #2d6cdf; text-decoration: none; }
+.auth-link:hover { text-decoration: underline; }
+
+/* 登录弹窗 */
+.auth-tabs { display: flex; gap: 8px; margin-top: 12px; }
+.auth-tabs .auth-tab { margin-top: 0; font-size: 13px; padding: 6px 14px; }
+.auth-tabs .auth-tab.active { background: #2d6cdf; color: #fff; }
+
+/* 发布类型选择 */
+.post-type-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.post-type-row .post-type { margin-top: 4px; font-size: 13px; padding: 8px 14px; }
+.post-type-row .post-type.active { background: #2d6cdf; color: #fff; }
+
+/* 信箱 */
+.mb-h { font-size: 13px; color: #444; margin: 6px 0 8px; }
+.mb-sub { padding: 12px; }
+.mb-item .thumb { width: 48px; height: 48px; }

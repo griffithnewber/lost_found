@@ -22,8 +22,11 @@
   function el(id) { return document.getElementById(id); }
 
   function statusBadge(it) {
-    if (it.status === 'claimed') return ' <span class="badge score">已有人认领</span>';
-    return ' <span class="badge">待认领</span>';
+    var type = it.postType === 'found' ? '拾者发布' : '失者发布';
+    var state = it.status === 'claimed'
+      ? ' <span class="badge score">已有人认领</span>'
+      : ' <span class="badge">待认领</span>';
+    return ' <span class="badge badge-type">' + type + '</span>' + state;
   }
 
   function match(it) {
@@ -60,10 +63,10 @@
         '<div class="item-title">' + LF.ui.esc(it.title) + statusBadge(it) + '</div>' +
         '<div class="item-meta">' + LF.ui.esc(it.time || '') + '</div>' +
         (it.aiDesc ? '<div class="item-desc ai">🤖 ' + LF.ui.esc(it.aiDesc) + '</div>' : '') +
-        '<div class="item-desc muted">🔒 隐藏细节与具体位置需通过核验后由失主告知</div>' +
+        '<div class="item-desc muted">🔒 隐藏细节与具体位置需通过核验后由发布者告知</div>' +
         '<div class="square-ops">' +
         '<button class="ghost" data-claim="' + it.id + '">认领 / 确认匹配</button>' +
-        '<button class="ghost" data-contact="' + it.id + '">✉️ 联系失主</button>' +
+        '<button class="ghost" data-contact="' + it.id + '">' + (it.postType === 'found' ? '✉️ 联系拾者' : '✉️ 联系失主') + '</button>' +
         '</div>' +
         '</div></div>';
     }).join('');
