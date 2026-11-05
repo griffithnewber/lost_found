@@ -156,7 +156,7 @@ makeQuestion(detail)               // → {question}      出题
 judgeAnswer(detail, question, ans, ansImageDataURL) // → {pass:boolean, reason}
 ```
 
-### A · 组长 —— AI Agent 接入线（拥有 `assets/api.js`、`assets/ai.js`、云库结构）
+### A · 组长 —— AI Agent 接入线（拥有 `assets/config.js`、`assets/api.js`、`assets/ai.js`、云库结构）
 
 | 任务 | 验收标准 |
 | --- | --- |
@@ -167,7 +167,7 @@ judgeAnswer(detail, question, ans, ansImageDataURL) // → {pass:boolean, reason
 | 节流与安全 | 同一浏览器 60 秒 ≤3 次 AI 调用；用户输入不入 system；失败有降级文案 |
 | 模型约定 | 视觉 `glm-4.6v`，文本 `glm-5.3-flash`，压测 `hy4free` |
 
-### B · 前端交互线（拥有 `assets/ui.js`、`assets/styles.css`）
+### B · 前端交互线（拥有 `assets/ui.js`、`assets/styles.css`、`assets/app.js`）
 
 | 任务 | 验收标准 |
 | --- | --- |
