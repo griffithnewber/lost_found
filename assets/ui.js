@@ -261,4 +261,49 @@
     var btn = document.getElementById('match-done');
     if (btn) btn.addEventListener('click', LF.ui.closeModal);
   };
+
+  /* ================= 拖拽上传区（B 新增） ================= */
+  /**
+   * 给任意元素套上「拖图片进来即可上传」的能力。
+   * zone 内需含 .dz-text 元素作为提示文案（拖入时会临时换成「松手即可上传」）。
+   * onFile(file) 只会收到图片文件；非图片会红字提示。
+   */
+  LF.ui.enableDropZone = function (zone, onFile) {
+    var depth = 0;
+    var label = zone.querySelector('.dz-text');
+    var origin = label ? label.textContent : '';
+
+    function highlight() {
+      if (label) label.textContent = '松手即可上传';
+      zone.classList.add('dragging');
+    }
+    function reset() {
+      depth = 0;
+      if (label) label.textContent = origin;
+      zone.classList.remove('dragging');
+    }
+
+    ['dragenter', 'dragover'].forEach(function (k) {
+      zone.addEventListener(k, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (k === 'dragenter') { depth++; highlight(); }
+        else zone.classList.add('dragging');
+      });
+    });
+    zone.addEventListener('dragleave', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      depth--;
+      if (depth <= 0) reset();
+    });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      reset();
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f && /^image\//.test(f.type)) onFile(f);
+      else LF.ui.toast('请拖入图片文件（jpg / png / webp）', 'error');
+    });
+  };
 })();
