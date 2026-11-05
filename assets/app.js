@@ -57,15 +57,23 @@
     var mask = document.createElement('div');
     mask.className = 'entry-mask';
     mask.innerHTML = '' +
-      '<div class="entry-title">欢迎使用失物招领 🧭</div>' +
-      '<div class="entry-sub">先选一个身份，之后随时可以在顶部标签里切换</div>' +
-      '<div class="entry-cards">' +
-      '<div class="entry-card" data-entry="lost">' +
-      '<div class="entry-emoji">😢</div><b>我丢了东西</b><span>发布失物信息，等大家帮你找</span></div>' +
-      '<div class="entry-card" data-entry="found">' +
-      '<div class="entry-emoji">🙋</div><b>我捡到了东西</b><span>去广场看看有没有人正在找</span></div>' +
+      '<div class="entry-box">' +
+      '<div class="entry-title">🧭 失物招领</div>' +
+      '<div class="entry-sub">先说说你是哪一边的？之后随时可以在顶部标签里切换</div>' +
+      '<div class="entry-list">' +
+      '<button type="button" class="entry-option" data-entry="lost">' +
+      '<span class="entry-no">1</span>' +
+      '<span class="entry-text">我丢了东西 😭</span>' +
+      '<span class="entry-desc">发一条寻物启事，AI 帮你找是谁捡到了</span>' +
+      '</button>' +
+      '<button type="button" class="entry-option" data-entry="found">' +
+      '<span class="entry-no">2</span>' +
+      '<span class="entry-text">我捡到了东西 🙋</span>' +
+      '<span class="entry-desc">发一条招领，等失主来认领</span>' +
+      '</button>' +
       '</div>' +
-      '<button type="button" class="entry-skip">先随便看看 →</button>';
+      '<button type="button" class="entry-skip">随便看看，先逛逛广场 →</button>' +
+      '</div>';
     document.body.appendChild(mask);
 
     mask.querySelector('[data-entry="lost"]').addEventListener('click', function () {
@@ -87,6 +95,8 @@
     });
 
     mask.querySelector('.entry-skip').addEventListener('click', function () {
+      var tab = document.querySelector('.tab[data-tab="square"]');   // 随便看看 = 先逛广场
+      if (tab) tab.click();
       dismissEntryMask(mask);
     });
   }

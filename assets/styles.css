@@ -129,22 +129,38 @@ img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
 .entry-mask.hide { opacity: 0; pointer-events: none; }
 .entry-title { font-size: 22px; font-weight: 700; color: #222; }
 .entry-sub { color: #888; font-size: 13px; }
-.entry-cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
-.entry-card {
-  width: 220px; padding: 28px 20px; text-align: center;
-  background: #fff; border-radius: 18px; border: 2px solid transparent;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, .08);
-  cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s;
+
+/* 双入口 · 竖排编号选项（旧版视觉：1 我丢了东西😭 / 2 我捡到了东西🙋） */
+.entry-box {
+  width: 100%; max-width: 400px;
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 10px; text-align: center;
 }
-.entry-card:hover {
-  transform: translateY(-4px);
-  border-color: #2d6cdf;
-  box-shadow: 0 8px 24px rgba(45, 108, 223, .18);
+.entry-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.entry-option {
+  display: grid; grid-template-columns: 28px 1fr; align-items: center;
+  column-gap: 12px; row-gap: 2px; text-align: left;
+  padding: 16px 18px; margin-top: 0;
+  background: #fff; color: #222; font-weight: 400;
+  border: 2px solid transparent; border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .07);
+  cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s;
 }
-.entry-emoji { font-size: 40px; }
-.entry-card b { display: block; font-size: 17px; margin-top: 10px; color: #222; }
-.entry-card span { display: block; font-size: 13px; color: #999; margin-top: 4px; }
-.entry-skip { background: none; color: #aaa; font-size: 13px; padding: 6px 12px; margin-top: 6px; }
+.entry-option:hover {
+  background: #fff; transform: translateY(-2px);
+  border-color: #2d6cdf; box-shadow: 0 8px 24px rgba(45, 108, 223, .16);
+}
+.entry-no {
+  grid-row: span 2; width: 26px; height: 26px; border-radius: 50%;
+  background: #eef3fd; color: #2d6cdf; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.entry-text { font-size: 17px; font-weight: 700; color: #222; }
+.entry-desc { font-size: 12.5px; color: #9aa0aa; }
+.entry-skip {
+  background: none; color: #aaa; font-size: 13px; font-weight: 400;
+  padding: 6px 12px; margin-top: 4px;
+}
 .entry-skip:hover { background: #ececec; color: #666; }
 
 /* ---- B2 · 拖拽上传区 ---- */
