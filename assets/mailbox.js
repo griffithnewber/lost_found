@@ -44,13 +44,16 @@
     var byId = {};
     items.forEach(function (it) { byId[it.id] = it; });
 
-    // 与我相关的会话：我发布的物品收到留言，或我发出的留言
-    var threads = {};   // itemId -> [msg]
+    // 与我相关的会话：我是发布者，或我在这个会话里发过言（对方的回复也要算进来）
+    var mineThread = {};   // itemId -> true  我参与过的会话
     msgs.forEach(function (m) {
       var it = byId[m.itemId];
       if (!it) return;
-      var involved = m.senderId === me || (it.ownerId === me && m.senderId !== me);
-      if (involved) (threads[m.itemId] = threads[m.itemId] || []).push(m);
+      if (it.ownerId === me || m.senderId === me) mineThread[m.itemId] = true;
+    });
+    var threads = {};      // itemId -> [msg]  参与会话的全部消息（含对方回复）
+    msgs.forEach(function (m) {
+      if (mineThread[m.itemId]) (threads[m.itemId] = threads[m.itemId] || []).push(m);
     });
 
     var ids = Object.keys(threads).sort(function (a, b) {
@@ -73,15 +76,23 @@
         return (a.createdAt || '') < (b.createdAt || '') ? -1 : 1;
       }).pop();
       var mine = last.senderId === me;
+      // 发言者称呼：发布者按帖子类型叫「拾者/失主」，对方按身份叫「失者/对方」
+      var who;
+      if (mine) who = '我';
+      else if (last.role === 'owner') who = (it.postType === 'found' ? '拾者' : '失主');
+      else who = (it.postType === 'found' ? '失者' : '对方');
+      var hasNew = !mine;   // 最后一条是别人发的 → 有新消息待读
       return '' +
-        '<div class="item mb-item' + (it.status === 'returned' ? ' archived' : '') + '">' +
+        '<div class="item mb-item' + (it.status === 'returned' ? ' archived' : '') +
+        (hasNew ? ' mb-new' : '') + '">' +
         (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
         '<div class="item-body">' +
         '<div class="item-title">' + esc(it.title) +
         (it.status === 'returned' ? ' <span class="badge">已完成</span>' : ' <span class="badge score">进行中</span>') +
+        (hasNew ? ' <span class="badge">🆕 新回复</span>' : '') +
         '</div>' +
         '<div class="item-meta">' + list.length + ' 条 · 最近：' + esc(fmtTime(last.createdAt)) + '</div>' +
-        '<div class="item-desc">' + esc((mine ? '我：' : '对方：') + last.content).slice(0, 60) + '</div>' +
+        '<div class="item-desc">' + esc(who + '：' + last.content).slice(0, 60) + '</div>' +
         '<button class="ghost" style="margin-top:8px" data-mb-open="' + id + '">打开对话</button>' +
         '</div></div>';
     }).join('');

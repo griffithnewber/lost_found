@@ -240,3 +240,4 @@ img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
 /* ---- A · 已找回记录的归档样式 ---- */
 .item.archived { opacity: .68; }
 .item.archived .thumb { filter: grayscale(.5); }
+.item.mb-new { border-left: 3px solid #2d6cdf; background: #f5f8ff; }
