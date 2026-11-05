@@ -182,6 +182,7 @@
       name: r.name || '',
       contact: r.contact || '',
       content: r.content || '',
+      senderId: r.sender_id || '',     // 必须带出：信箱「发件」分区靠它判断是不是自己发的
       createdAt: r.created_at || ''
     };
   }
