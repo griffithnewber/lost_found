@@ -76,7 +76,7 @@
 
     var u = { userId: 'u_' + username.toLowerCase(), username: username };
     localStorage.setItem(STORE_KEY, JSON.stringify(u));
-    document.dispatchEvent(new CustomEvent('lf:auth'));
+    afterAuth(u);
     return { ok: true, user: u };
   };
 
@@ -92,7 +92,7 @@
 
     var u = { userId: 'u_' + row.username.toLowerCase(), username: row.username };
     localStorage.setItem(STORE_KEY, JSON.stringify(u));
-    document.dispatchEvent(new CustomEvent('lf:auth'));
+    afterAuth(u);
     return { ok: true, user: u };
   };
 
@@ -100,6 +100,43 @@
     localStorage.removeItem(STORE_KEY);
     document.dispatchEvent(new CustomEvent('lf:auth'));
   };
+
+  /* ---------- 强制登录闸门 ----------
+   * LF.auth.require('为什么需要登录', function () { 登录后接着做的事 })
+   *   已登录：直接执行回调并返回 true
+   *   未登录：弹登录框、记住回调；登录/注册成功后自动接着执行，返回 false
+   */
+  var pending = null;
+
+  LF.auth.require = function (why, onDone) {
+    if (LF.auth.userId()) { if (onDone) onDone(); return true; }
+    pending = onDone || null;
+    if (why) LF.ui.toast(why, 'info', 3200);
+    LF.auth.openDialog();
+    return false;
+  };
+
+  function runPending() {
+    var fn = pending;
+    pending = null;
+    if (typeof fn === 'function') setTimeout(fn, 0);
+  }
+
+  /* 登录成功后，把本机匿名发布的记录归到账号名下（否则那些记录会变成孤儿） */
+  async function adoptLocalPosts() {
+    if (!LF.api || !LF.api.adoptLocalItems) return;
+    var n = await LF.api.adoptLocalItems();
+    if (n > 0) {
+      LF.ui.toast('已把本机匿名发布的 ' + n + ' 条记录归到你的账号下', 'success', 3600);
+      document.dispatchEvent(new CustomEvent('lf:changed'));
+    }
+  }
+
+  function afterAuth(user) {
+    document.dispatchEvent(new CustomEvent('lf:auth'));
+    adoptLocalPosts();
+    runPending();
+  }
 
   /* ---------- 顶部入口 UI ---------- */
   LF.auth.renderBar = function () {
@@ -129,7 +166,7 @@
         '<div class="modal">' +
         '<button class="modal-close" id="auth-close" title="关闭">✕</button>' +
         '<h3>登录 / 注册</h3>' +
-        '<div class="hint">只需要用户名和密码。登录后你的发布、留言和信箱会跟着账号走。</div>' +
+        '<div class="hint">只需要用户名和密码。发布、留言、认领、信箱都需要先登录，数据跟着账号走，换电脑也能看到。</div>' +
         '<div class="auth-tabs">' +
         '<button class="ghost auth-tab active" data-mode="login">登录</button>' +
         '<button class="ghost auth-tab" data-mode="register">注册</button>' +
@@ -173,10 +210,15 @@
     el('auth-username').focus();
   };
 
-  function close() { if (mask) mask.classList.remove('show'); }
+  function close() {
+    if (mask) mask.classList.remove('show');
+    pending = null;   // 用户主动关掉登录框，就别在以后某次登录时再偷偷执行旧动作
+  }
 
   document.addEventListener('DOMContentLoaded', function () {
     LF.auth.renderBar();
+    // 历史上的匿名发布：已登录状态下打开页面也补一次归属，避免那条记录永远没人能管
+    if (LF.auth.userId()) adoptLocalPosts();
   });
   document.addEventListener('lf:auth', function () {
     LF.auth.renderBar();

@@ -241,6 +241,43 @@
     return id;
   };
 
+  /**
+   * 登录后「收养」本机匿名发布的记录：
+   * 把 owner_id / sender_id 还停在本机设备 ID 上的数据，迁到当前账号名下，
+   * 这样之前没登录时发的失物、留言都能在「我的发布」和信箱里继续操作。
+   * -> Promise<number> 迁移的物品条数（0 表示没有需要迁移的）
+   */
+  LF.api.adoptLocalItems = async function () {
+    var uid = (window.LF && LF.auth && LF.auth.userId && LF.auth.userId()) || null;
+    if (!uid) return 0;
+    var localId = localStorage.getItem('lf_owner_id');
+    if (!localId || localId === uid) return 0;
+
+    try {
+      var db = getCloud().database;
+      var found = await db.from(LF.config.table).select('id').eq('owner_id', localId).limit(1000);
+      if (found.error) throw found.error;
+      var ids = (found.data || []).map(function (r) { return r.id; });
+
+      if (ids.length) {
+        var upd = await db.from(LF.config.table).update({ owner_id: uid }).eq('owner_id', localId);
+        if (upd.error) throw upd.error;
+      }
+      // 匿名时发出的留言也一并认领，否则信箱「发件」里看不到
+      await db.from(LF.config.messageTable).update({ sender_id: uid }).eq('sender_id', localId);
+
+      var cache = loadCache().map(function (x) {
+        return x.ownerId === localId ? Object.assign({}, x, { ownerId: uid }) : x;
+      });
+      saveCache(cache);
+      localStorage.removeItem('lf_owner_id');   // 迁移过就不再复用这个身份
+      return ids.length;
+    } catch (e) {
+      console.error('[api] adoptLocalItems failed', e);
+      return 0;
+    }
+  };
+
   /** 默认实现，ui.js 加载后会覆盖成真正的状态条渲染 */
   LF.api.setStatus = function (text, ok) {
     var el = document.getElementById('cloud-status');

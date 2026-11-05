@@ -70,6 +70,10 @@
 
   /* ================= 找东西的人：给失主留言 ================= */
   LF.contact.openFinder = function (item) {
+    if (!LF.auth.userId()) {                     // 未登录：登录成功后自动把留言框打开
+      LF.auth.require('留言前先登录，对方回复你时才能在信箱里看到', function () { LF.contact.openFinder(item); });
+      return;
+    }
     var isFound = item.postType === 'found';
     var box = open('✉️ 给发布者留言', isFound
       ? '这件物品是拾到的人发布的。留言会出现在对方「我的发布」和信箱里。'
@@ -125,6 +129,10 @@
    *             'finder'（认领者视角，看自己发的留言和对方回复）
    */
   LF.contact.openThread = async function (item, viewerRole) {
+    if (!LF.auth.userId()) {
+      LF.auth.require('查看留言前先登录', function () { LF.contact.openThread(item, viewerRole); });
+      return;
+    }
     viewerRole = viewerRole || 'owner';
     var me = LF.api.ownerId();
     var isOwnerView = viewerRole === 'owner';
@@ -171,6 +179,7 @@
 
     var sendBtn = document.getElementById('ct-reply-send');
     if (sendBtn) sendBtn.addEventListener('click', async function () {
+      if (!LF.auth.require('发送前先登录')) return;
       var text = document.getElementById('ct-reply').value.trim();
       if (!text) { LF.ui.toast('请先输入内容', 'error'); return; }
       sendBtn.disabled = true; sendBtn.textContent = '发送中…';

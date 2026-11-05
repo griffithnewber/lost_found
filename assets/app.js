@@ -76,26 +76,30 @@
       '</div>';
     document.body.appendChild(mask);
 
+    // 进入发布：必须登录（匿名发布会变成没人能管的孤儿记录）
+    function enterPublish(type, tip) {
+      LF.auth.require('先登录一下，你的发布和信箱才会跟着账号走', function () {
+        try { sessionStorage.setItem(ENTRY_KEY, type); } catch (e) { /* 忽略 */ }
+        var pt = document.querySelector('.post-type[data-type="' + type + '"]');
+        if (pt) pt.click();                     // 与 A 的 postType 状态联动
+        var tab = document.querySelector('.tab[data-tab="publish"]');
+        if (tab) tab.click();                   // 复用现成 tab 逻辑
+        dismissEntryMask(mask);
+        LF.ui.toast(tip, 'info', 2800);
+      });
+    }
+
     mask.querySelector('[data-entry="lost"]').addEventListener('click', function () {
-      try { sessionStorage.setItem(ENTRY_KEY, 'lost'); } catch (e) { /* 忽略 */ }
-      var pt = document.querySelector('.post-type[data-type="lost"]');
-      if (pt) pt.click();                       // 与 A 的 postType 状态联动
-      var tab = document.querySelector('.tab[data-tab="publish"]');
-      if (tab) tab.click();                     // 复用现成 tab 逻辑
-      dismissEntryMask(mask);
-      LF.ui.toast('已进入发布面板，跟着 🤖 提示一步步填就行', 'info', 2600);
+      enterPublish('lost', '已进入发布面板，跟着 🤖 提示一步步填就行');
     });
 
     mask.querySelector('[data-entry="found"]').addEventListener('click', function () {
-      try { sessionStorage.setItem(ENTRY_KEY, 'found'); } catch (e) { /* 忽略 */ }
-      var tab = document.querySelector('.tab[data-tab="square"]');
-      if (tab) tab.click();
-      dismissEntryMask(mask);
-      LF.ui.toast('这是广场 · 大家捡到的东西都在这里，也可以切「🔍 找东西」做 AI 检索', 'info', 3000);
+      enterPublish('found', '已切到拾者发布，不用写品牌型号，选类别和颜色就行');
     });
 
+    // 游客只读：可以逛广场，任何写操作仍会弹登录
     mask.querySelector('.entry-skip').addEventListener('click', function () {
-      var tab = document.querySelector('.tab[data-tab="square"]');   // 随便看看 = 先逛广场
+      var tab = document.querySelector('.tab[data-tab="square"]');
       if (tab) tab.click();
       dismissEntryMask(mask);
     });
@@ -500,6 +504,9 @@
   }
 
   async function publishFromDraft(btn) {
+    // 强制登录：匿名发布会变成孤儿记录，别人留言也找不到人
+    if (!LF.auth.require('发布前先登录一下，别人联系你时才收得到')) return;
+
     var d = wiz.draft;
     var isLost = state.postType !== 'found';
 
@@ -618,6 +625,8 @@
   }
 
   async function publish() {
+    if (!LF.auth.require('发布前先登录一下，别人联系你时才收得到')) return;
+
     var isLost = state.postType !== 'found';
     var title = el('pub-title').value.trim();
     var detail = el('pub-detail').value.trim();
@@ -915,7 +924,10 @@
         document.querySelectorAll('.panel').forEach(function (x) { x.classList.remove('active'); });
         t.classList.add('active');
         el('panel-' + t.dataset.tab).classList.add('active');
-        if (t.dataset.tab === 'publish') renderMyPosts();
+        if (t.dataset.tab === 'publish') {
+          renderMyPosts();
+          if (!LF.auth.userId()) LF.ui.toast('还没登录：可以先看，真要发布时会请你登录', 'info', 3000);
+        }
       });
     });
   }
