@@ -34,7 +34,7 @@
     mask.innerHTML = '' +
       '<div class="modal">' +
       '<button class="modal-close" id="contact-close" title="关闭">✕</button>' +
-      '<h3 id="contact-title">联系失主</h3>' +
+      '<h3 id="contact-title">联系发布者</h3>' +
       '<div class="hint" id="contact-sub"></div>' +
       '<div id="contact-body"></div>' +
       '</div>';
@@ -75,6 +75,8 @@
       return;
     }
     var isFound = item.postType === 'found';
+    // 收件方称呼：拾者发布的帖子 → 收信人是拾者；失者发布的 → 收信人是失主
+    var who = isFound ? '拾者' : '失主';
     var box = open('✉️ 给发布者留言', isFound
       ? '这件物品是拾到的人发布的。留言会出现在对方「我的发布」和信箱里。'
       : '留言会出现在发布者的「我的发布」和信箱里，只有对方能看到你的联系方式。');
@@ -90,8 +92,10 @@
       '<label>联系方式（微信 / 手机 / 邮箱，必填）</label>' +
       '<input type="text" id="ct-contact" placeholder="例：微信 wang_2024" maxlength="80">' +
       '<label>留言内容</label>' +
-      '<textarea id="ct-content" maxlength="500" placeholder="例：我在图书馆三楼东侧靠窗座位捡到，可以明天中午在图书馆门口交接。"></textarea>' +
-      '<button id="ct-send">发送给失主</button>' +
+      '<textarea id="ct-content" maxlength="500" placeholder="' + (isFound
+        ? '例：我昨天下午在西教 503 丢了耳机，黑色，耳机盒上贴着一张蓝色贴纸。'
+        : '例：我在图书馆三楼东侧靠窗座位捡到，可以明天中午在图书馆门口交接。') + '"></textarea>' +
+      '<button id="ct-send">发送给' + who + '</button>' +
       '<div class="hint" style="margin-top:8px">⚠️ 请勿在留言中索要报酬；遇到可疑索要钱财的情况请直接联系学校保卫处。</div>';
 
     var btn = document.getElementById('ct-send');
@@ -99,7 +103,7 @@
       var name = document.getElementById('ct-name').value.trim();
       var contact = document.getElementById('ct-contact').value.trim();
       var content = document.getElementById('ct-content').value.trim();
-      if (!contact) { LF.ui.toast('请填写联系方式，否则失主无法联系你', 'error'); return; }
+      if (!contact) { LF.ui.toast('请填写联系方式，否则' + who + '无法联系你', 'error'); return; }
       if (!content) { LF.ui.toast('请填写留言内容', 'error'); return; }
 
       btn.disabled = true; btn.textContent = '发送中…';
@@ -107,19 +111,19 @@
         itemId: item.id, role: 'finder', name: name, contact: contact, content: content,
         senderId: LF.api.ownerId()
       });
-      btn.disabled = false; btn.textContent = '发送给失主';
+      btn.disabled = false; btn.textContent = '发送给' + who;
 
       if (!res.ok) { LF.ui.toast('留言发送失败：' + res.error, 'error', 3500); return; }
 
       document.getElementById('contact-body').innerHTML = '' +
         '<div class="match-box">' +
-        '<div>✅ 留言已送达失主。</div>' +
-        '<div style="margin-top:6px">失主会在网站的“我的发布 → 💬 留言”里看到，并通过你留的联系方式找你。</div>' +
+        '<div>✅ 留言已送达' + who + '（发布者）。</div>' +
+        '<div style="margin-top:6px">对方会在网站的“我的发布 → 💬 留言”和信箱里看到，并通过你留的联系方式找你。</div>' +
         '<div style="margin-top:6px;color:#888">如果 24 小时没有回应，可以再补充一条更具体的描述。</div>' +
         '</div>' +
         '<button id="ct-done">好的</button>';
       document.getElementById('ct-done').addEventListener('click', close);
-      LF.ui.toast('✅ 留言已发送给失主', 'success');
+      LF.ui.toast('✅ 留言已发送给' + who, 'success');
       LF.contact.refreshBadges();
     });
   };
@@ -150,12 +154,15 @@
       html += '<div class="thread-item" style="background:#f2f4f8">该物品已完成认领，已从广场下架。</div>';
     }
     if (!msgs.length) {
-      html += '<div class="empty">' + (isOwnerView ? '还没有人留言。可以把物品名称和大致地点发到班级群，让捡到的人来这里留言。' : '你还没有给这条物品留过言。') + '</div>';
+      html += '<div class="empty">' + (isOwnerView
+        ? (item.postType === 'found' ? '还没有人留言。可以把「捡到了什么、在哪捡的」发到班级群，让失主来这里留言认领。' : '还没有人留言。可以把物品名称和大致地点发到班级群，让捡到的人来这里留言。')
+        : '你还没有给这条物品留过言。') + '</div>';
     } else {
       html += '<div class="thread">' + msgs.map(function (m) {
         var mine = m.senderId ? m.senderId === me : (isOwnerView ? m.role === 'owner' : m.role === 'finder');
         var who = mine ? '我'
-          : (m.role === 'owner' ? '发布者' : '认领的人' + (m.name ? ' · ' + m.name : ''));
+          : (m.role === 'owner' ? '发布者'
+            : (item.postType === 'found' ? '失者' : '认领的人') + (m.name ? ' · ' + m.name : ''));
         return '' +
           '<div class="thread-item' + (mine ? ' owner' : '') + '">' +
           '<div class="thread-title">' + who +
