@@ -60,7 +60,7 @@
 
   function haystack(it) {
     var tags = Array.isArray(it.aiTags) ? it.aiTags.join(' ') : '';
-    return [it.title, it.aiDesc, tags].filter(Boolean).join(' ');
+    return [it.title, it.notice, tags].filter(Boolean).join(' ');   // 公开说明优先；AI 描述仅作兜底
   }
 
   /** 文字检索 */

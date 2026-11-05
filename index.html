@@ -35,11 +35,25 @@
       <button type="button" class="ghost post-type active" data-type="lost">😢 我丢了东西（失者发布）</button>
       <button type="button" class="ghost post-type" data-type="found">🙋 我捡到了东西（拾者发布）</button>
     </div>
-    <label>物品名称（公开）</label>
+    <label>物品名称（公开 · 失者发布填写；拾者发布会自动用「颜色·类别」生成）</label>
     <input type="text" id="pub-title" placeholder="例：黑色雨伞 / 蓝色书包">
-    <label>上传物品图片（公开缩略图，AI 会自动生成特征描述）</label>
+    <div class="field-row">
+      <div>
+        <label>类别（拾者发布必选）</label>
+        <select id="pub-category"></select>
+      </div>
+      <div>
+        <label>主色调（拾者发布必选）</label>
+        <select id="pub-color"></select>
+      </div>
+    </div>
+    <div class="hint">拾者发布只公开「类别 + 颜色」，不公开品牌型号与独特征；照片会重度模糊后才公开。</div>
+    <label>上传物品图片（失者发布：实拍图公开；拾者发布：重度模糊后公开，原图不上传）</label>
     <input type="file" id="pub-image" accept="image/*">
     <div id="pub-preview"></div>
+    <label>公开说明（会显示在广场，用你自己的话写）</label>
+    <textarea id="pub-notice" placeholder="例：有没有人在 11 月 4 日下午在图书馆三楼看到一个米白色水杯？"></textarea>
+    <div class="hint">这段会公开给所有人看。别把只有你自己知道的细节写进来（贴纸、划痕、里面装了什么）。</div>
     <label id="pub-detail-label">物品细节描述（🔒 发布后隐藏，仅用于匹配确认）</label>
     <textarea id="pub-detail" placeholder="例：伞柄内侧有卡通贴纸，伞骨有一根用胶带缠过，丢失地点在图书馆三楼靠窗座位。"></textarea>
     <div class="hint" id="pub-detail-hint">细节不会公开展示，AI 会用这些细节生成只有真正主人／拾到者答得上来的核实问题。</div>

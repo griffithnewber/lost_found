@@ -31,8 +31,9 @@
 
   function match(it) {
     if (!keyword) return true;
-    var tags = Array.isArray(it.aiTags) ? it.aiTags.join(' ') : '';
-    var hay = [it.title, it.aiDesc, tags].filter(Boolean).join(' ').toLowerCase();
+    var cat = LF.ui.categoryMeta(it.category);
+    // 只按「用户自己的话 + 类别」筛，绝不使用 AI 描述（AI 只在后台算分，不上前台）
+    var hay = [it.title, it.notice, cat.label].filter(Boolean).join(' ').toLowerCase();
     return hay.indexOf(keyword.toLowerCase()) >= 0;
   }
 
@@ -56,17 +57,23 @@
     }
 
     box.innerHTML = rows.map(function (it) {
+      var cat = LF.ui.categoryMeta(it.category);
+      var isFound = it.postType === 'found';
+      var hint = isFound
+        ? '🔒 具体特征待核验后由拾者告知'
+        : '🔒 隐藏细节与具体位置需通过核验后由发布者告知';
       return '' +
         '<div class="item square-item">' +
-        (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
+        LF.ui.thumbHTML(it) +
         '<div class="item-body">' +
-        '<div class="item-title">' + LF.ui.esc(it.title) + statusBadge(it) + '</div>' +
-        '<div class="item-meta">' + LF.ui.esc(it.time || '') + '</div>' +
-        (it.aiDesc ? '<div class="item-desc ai">🤖 ' + LF.ui.esc(it.aiDesc) + '</div>' : '') +
-        '<div class="item-desc muted">🔒 隐藏细节与具体位置需通过核验后由发布者告知</div>' +
+        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) + statusBadge(it) + '</div>' +
+        '<div class="item-meta">' + LF.ui.esc(it.time || '') +
+        (isFound && cat.label ? ' · ' + cat.emoji + ' ' + LF.ui.esc(cat.label) : '') + '</div>' +
+        LF.ui.noticeHTML(it) +
+        '<div class="item-desc muted">' + hint + '</div>' +
         '<div class="square-ops">' +
-        '<button class="ghost" data-claim="' + it.id + '">认领 / 确认匹配</button>' +
-        '<button class="ghost" data-contact="' + it.id + '">' + (it.postType === 'found' ? '✉️ 联系拾者' : '✉️ 联系失主') + '</button>' +
+        '<button class="ghost" data-claim="' + it.id + '">' + (isFound ? '我要认领' : '这是我丢的') + '</button>' +
+        '<button class="ghost" data-contact="' + it.id + '">' + (isFound ? '✉️ 联系拾者' : '✉️ 联系失主') + '</button>' +
         '</div>' +
         '</div></div>';
     }).join('');

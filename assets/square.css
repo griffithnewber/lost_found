@@ -5,3 +5,34 @@
 .square-ops button { font-size: 12px; padding: 6px 12px; margin-top: 8px; }
 .item-desc.muted { color: #999; font-size: 12px; }
 .badge-type { background: #E6F1FB; color: #185FA5; }
+
+/* ===== 公开信息分级：模糊缩略图 / 占位色卡 / 用户自己写的说明 ===== */
+.thumb-wrap { position: relative; flex: 0 0 auto; }
+.thumb.blurred {
+  /* 双保险：图片本身已是重度模糊图，这里再叠一层模糊，防止历史原图被继续看清 */
+  filter: blur(3px) saturate(1.05);
+  image-rendering: auto;
+}
+.thumb-tag {
+  position: absolute; right: 4px; bottom: 4px;
+  background: rgba(255,255,255,.9); border-radius: 10px;
+  font-size: 14px; line-height: 1; padding: 3px 5px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+}
+.ph-card {
+  width: 64px; height: 64px; border-radius: 10px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.ph-card .ph-emoji { font-size: 28px; opacity: .85; }
+.item-desc.notice {
+  color: #2c3e50; background: #F7F9FC; border-left: 3px solid #D5E3F5;
+  padding: 6px 8px; border-radius: 4px; font-size: 13px; line-height: 1.5;
+}
+
+/* ===== 分步录入：类别 / 颜色选择按钮 ===== */
+.wiz-select-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.wiz-opt { font-size: 13px; padding: 8px 12px; }
+.wiz-opt.active { background: #2F6FED; color: #fff; border-color: #2F6FED; }
+.field-row { display: flex; gap: 12px; }
+.field-row > div { flex: 1; min-width: 0; }

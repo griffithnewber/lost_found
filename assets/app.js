@@ -181,23 +181,55 @@
 
   function wizardSteps() {
     var isLost = state.postType !== 'found';
-    return [
+    var common = [
       { key: 'postType', type: 'identity',
-        ask: '先确认一下：你是丢了东西，还是捡到了东西？' },
-      { key: 'title', type: 'text', required: true,
-        ask: isLost ? '丢的是什么？（物品名称）' : '捡到了什么？（物品名称）',
-        placeholder: isLost ? '例：黑色雨伞' : '例：蓝色书包' },
-      { key: 'image', type: 'image', required: false, skippable: true,
-        ask: '有照片吗？可以直接 Ctrl/Cmd+V 粘贴，或拖拽、点击选择文件' },
-      { key: 'location', type: 'location', required: false,
-        ask: isLost ? '大概在哪里丢的？' : '大概在哪里捡到的？',
-        placeholder: '例：图书馆三楼东侧靠窗座位' },
-      { key: 'detail', type: 'textarea', required: true,
-        ask: '有没有别人不知道的细节？（🔒 仅用于核实身份，不会公开）',
-        hint: isLost
-          ? '比如贴纸、划痕、里面装了什么——只有真失主答得上来，AI 核实全靠它'
-          : '比如物品里装的东西、磨损位置——只有真失主答得上来，AI 核实全靠它' }
+        ask: '先确认一下：你是丢了东西，还是捡到了东西？' }
     ];
+
+    if (!isLost) {
+      /* 拾者发布：只公开「类别 + 颜色 + 区域 + 自己写的一句话」，
+         不填自由标题、不生成 AI 描述 —— 防止冒领者拿到可复制的特征 */
+      return common.concat([
+        { key: 'category', type: 'select', required: true, options: 'categories',
+          ask: '捡到的是哪一类东西？',
+          hint: '只公开类别，不公开品牌和型号' },
+        { key: 'colorTone', type: 'select', required: true, options: 'colorTones',
+          ask: '它大概是什么颜色？',
+          hint: '只到「大概颜色」，别写花纹、贴纸、划痕这类独特征' },
+        { key: 'image', type: 'image', required: false, skippable: true,
+          ask: '拍照片了吗？会做成重度模糊图公开，原图不会上传' },
+        { key: 'location', type: 'location', required: false,
+          ask: '大概在哪里捡到的？',
+          placeholder: '例：图书馆三楼一带' },
+        { key: 'notice', type: 'textarea', required: true,
+          ask: '用你自己的话说一句拾获说明（会公开）',
+          hint: '让别人知道大概是怎么回事就行，别写只有失主才知道的细节',
+          placeholder: '例：11 月 4 日下午在图书馆三楼捡到一个杯子，可以留言对一下样子。' },
+        { key: 'detail', type: 'textarea', required: true,
+          ask: '如果失主来认领，你希望他答出什么细节？',
+          hint: '🔒 这条永远不公开，AI 用它出题、判答' }
+      ]);
+    }
+
+    /* 失者发布：公开自己的寻物启事（实物图 + 自己的话），
+       隐藏细节只给 AI 做核验，同样不在任何页面展示 */
+    return common.concat([
+      { key: 'title', type: 'text', required: true,
+        ask: '丢的是什么？（物品名称）',
+        placeholder: '例：黑色雨伞' },
+      { key: 'image', type: 'image', required: false, skippable: true,
+        ask: '有同款或类似的照片吗？有的话更容易被人认出' },
+      { key: 'location', type: 'location', required: false,
+        ask: '大概在哪里丢的？',
+        placeholder: '例：图书馆三楼东侧靠窗座位' },
+      { key: 'notice', type: 'textarea', required: true,
+        ask: '写一句公开的寻物启事（会显示在广场上）',
+        hint: '写清时间 + 地点 + 外观，别把只有你知道的细节写进来',
+        placeholder: '例：有没有人在 11 月 4 日下午在图书馆三楼看到一个米白色水杯？' },
+      { key: 'detail', type: 'textarea', required: true,
+        ask: '有没有别人不知道的细节？（🔒 绝不公开）',
+        hint: '比如贴纸、划痕、里面装了什么 —— AI 会用这些生成只有真失主答得上来的问题' }
+    ]);
   }
 
   function chooseIdentity(type) {
@@ -222,6 +254,11 @@
     var v = wiz.draft[step.key];
     if (step.key === 'image') return v ? '[图片已添加]' : '(跳过)';
     if (step.key === 'postType') return v === 'found' ? '我捡到了东西' : '我丢了东西';
+    if (step.key === 'category') {
+      var c = LF.ui.categoryMeta(v);
+      return v ? (c.emoji + ' ' + c.label) : '(未选)';
+    }
+    if (step.key === 'colorTone') return v ? LF.ui.toneMeta(v).label : '(未选)';
     return v ? String(v) : '(跳过)';
   }
 
@@ -234,7 +271,7 @@
     card.className = 'card wiz-card';
     card.id = 'wiz-card';
     card.innerHTML = '' +
-      '<div class="wiz-head"><b>🤖 对话式发布</b>' +
+      '<div class="wiz-head"><b>💬 对话式发布</b>' +
       '<button type="button" class="ghost wiz-toggle-form" id="wiz-toggle">🧾 切换传统表单</button></div>' +
       '<div class="wiz-chat" id="wiz-chat"></div>' +
       '<div id="wiz-input"></div>';
@@ -245,7 +282,7 @@
     el('wiz-toggle').addEventListener('click', function () {
       wiz.onImageStep = false;                       // 切走时让出粘贴目标
       var hiding = formCard.classList.toggle('form-hidden');
-      this.textContent = hiding ? '🧾 切换传统表单' : '🤖 返回对话式发布';
+      this.textContent = hiding ? '🧾 切换传统表单' : '💬 返回对话式发布';
     });
 
     renderWizard();
@@ -328,6 +365,30 @@
       });
       setTimeout(function () { inp.focus(); }, 0);
 
+    } else if (step.type === 'select') {
+      var opts = (LF.config[step.options] || []);
+      inputBox.innerHTML = '<div class="wiz-select-row">' + opts.map(function (o) {
+        var active = wiz.draft[step.key] === o.key ? ' active' : '';
+        return '<button type="button" class="ghost wiz-opt' + active + '" data-opt="' + o.key + '">' +
+          (o.emoji ? o.emoji + ' ' : '') + LF.ui.esc(o.label) + '</button>';
+      }).join('') + '</div>' +
+        (step.hint ? '<div class="hint">' + LF.ui.esc(step.hint) + '</div>' : '') +
+        wizOpsBar(backBtn + '<button type="button" data-wiz="next">下一步 →</button>');
+
+      Array.prototype.forEach.call(inputBox.querySelectorAll('.wiz-opt'), function (b) {
+        b.addEventListener('click', function () {
+          wiz.draft[step.key] = b.getAttribute('data-opt');
+          wiz.idx++;
+          renderWizard();
+        });
+      });
+      inputBox.querySelector('[data-wiz="next"]').addEventListener('click', function () {
+        if (step.required && !wiz.draft[step.key]) { LF.ui.toast('选一个再继续', 'error'); return; }
+        wiz.idx++; renderWizard();
+      });
+      var backB0 = inputBox.querySelector('[data-wiz="back"]');
+      if (backB0) backB0.addEventListener('click', function () { wiz.idx--; renderWizard(); });
+
     } else if (step.type === 'image') {
       wiz.onImageStep = true;
       inputBox.innerHTML = '' +
@@ -402,13 +463,20 @@
     chat.appendChild(ai);
 
     var d = wiz.draft, isLost = state.postType !== 'found';
+    var cat = LF.ui.categoryMeta(d.category);
+    var tone = LF.ui.toneMeta(d.colorTone);
+    var nameLine = isLost
+      ? LF.ui.esc(d.title || '（未填）')
+      : LF.ui.esc([tone.label, cat.label].filter(Boolean).join('·') || '（未选类别/颜色）');
+
     inputBox.innerHTML = '' +
       '<div class="wiz-confirm">' +
       '<div><b>类型：</b>' + (isLost ? '😢 失者发布' : '🙋 拾者发布') + '</div>' +
-      '<div><b>名称：</b>' + LF.ui.esc(d.title || '（未填）') + '</div>' +
-      '<div><b>照片：</b>' + (d.image ? '有（已压缩到 480px）' : '无') + '</div>' +
+      '<div><b>公开名称：</b>' + nameLine + '</div>' +
+      '<div><b>照片：</b>' + (d.image ? (isLost ? '有（实拍图公开）' : '有（会重度模糊后公开）') : '无') + '</div>' +
       '<div><b>' + (isLost ? '丢失位置' : '拾获位置') + '：</b>' + LF.ui.esc(d.location || '（未填）') + '</div>' +
-      '<div><b>🔒 隐藏细节：</b>' + LF.ui.esc(d.detail || '（未填）') + '</div>' +
+      '<div><b>公开说明：</b>' + LF.ui.esc(d.notice || '（未填）') + '</div>' +
+      '<div><b>🔒 隐藏细节（不公开）：</b>' + LF.ui.esc(d.detail || '（未填）') + '</div>' +
       '</div>' +
       wizOpsBar(
         '<button type="button" class="ghost" data-wiz="back">← 上一步</button>' +
@@ -423,27 +491,57 @@
 
   async function publishFromDraft(btn) {
     var d = wiz.draft;
-    if (!d.title || !d.detail) {
-      LF.ui.toast('名称和隐藏细节是必填的，返回补一下再发布', 'error');
+    var isLost = state.postType !== 'found';
+
+    // 校验：拾者发布必须有类别 + 颜色 + 公开说明 + 隐藏细节；失者发布必须有名称 + 公开说明 + 隐藏细节
+    var missing = [];
+    if (!isLost) {
+      if (!d.category) missing.push('类别');
+      if (!d.colorTone) missing.push('颜色');
+    } else if (!d.title) missing.push('名称');
+    if (!d.notice) missing.push('公开说明');
+    if (!d.detail) missing.push('隐藏细节');
+    if (missing.length) {
+      LF.ui.toast('还差：' + missing.join('、') + '，返回补一下', 'error');
       return;
     }
-    btn.disabled = true;
-    btn.textContent = '发布中…' + (d.image ? '（AI 识别图片，约需几秒）' : '');
 
+    btn.disabled = true;
+    btn.textContent = isLost && d.image ? '发布中…（AI 识别图片，约需几秒）' : '发布中…';
+
+    // 公开名称：失者用自己填的；拾者由「颜色·类别」自动泛化生成
+    var cat = LF.ui.categoryMeta(d.category);
+    var tone = LF.ui.toneMeta(d.colorTone);
+    var title = isLost
+      ? d.title
+      : ([tone.label, cat.label].filter(Boolean).join('·') || '物品');
+
+    // 图片：拾者发布的照片必须重度模糊后才上传，原图绝不出本机
+    var image = d.image || null;
+    var colorFeature = d.colorFeature || null;
+    if (!isLost && image) {
+      image = await LF.ui.blurImage(image, 320);
+      colorFeature = null;   // 模糊图的颜色特征没有比对价值
+    }
+
+    // AI 描述：只给失者发布生成（用于后台图片检索），拾者发布完全不调用 AI
     var aiDesc = '', aiTags = [];
-    if (d.image) {
-      var r = await LF.ai.describeImage(d.image);
+    if (isLost && image) {
+      var r = await LF.ai.describeImage(image);
       if (r.ok) { aiDesc = r.desc; aiTags = r.tags; }
     }
 
     var res = await LF.api.createItem({
-      title: d.title,
+      title: title,
       detail: d.detail,
       location: d.location || '',
-      image: d.image || null,
-      colorFeature: d.colorFeature || null,
+      image: image,
+      colorFeature: colorFeature,
       aiDesc: aiDesc,
       aiTags: aiTags,
+      notice: d.notice,
+      category: isLost ? '' : d.category,
+      colorTone: isLost ? '' : d.colorTone,
       status: 'open',
       postType: state.postType,
       ownerId: LF.api.ownerId(),
@@ -460,6 +558,7 @@
     wiz.idx = 0;
     renderWizard();          // 清预览、回到第一步
     renderMyPosts();         // 刷新「我的发布」
+    if (LF.square && LF.square.render) LF.square.render();
   }
 
   /* ================================================================
@@ -509,29 +608,60 @@
   }
 
   async function publish() {
+    var isLost = state.postType !== 'found';
     var title = el('pub-title').value.trim();
     var detail = el('pub-detail').value.trim();
     var location = el('pub-location').value.trim();
-    if (!title || !detail) { LF.ui.toast('请填写物品名称和隐藏细节', 'error'); return; }
+    var notice = el('pub-notice') ? el('pub-notice').value.trim() : '';
+    var category = el('pub-category') ? el('pub-category').value : '';
+    var colorTone = el('pub-color') ? el('pub-color').value : '';
+
+    var missing = [];
+    if (isLost && !title) missing.push('物品名称');
+    if (!isLost) {
+      if (!category) missing.push('类别');
+      if (!colorTone) missing.push('颜色');
+    }
+    if (!notice) missing.push('公开说明');
+    if (!detail) missing.push('隐藏细节');
+    if (missing.length) { LF.ui.toast('请填写：' + missing.join('、'), 'error'); return; }
 
     var btn = el('btn-publish');
     if (btn) { btn.disabled = true; btn.textContent = '发布中…'; }
 
+    var cat = LF.ui.categoryMeta(category);
+    var tone = LF.ui.toneMeta(colorTone);
+    var finalTitle = isLost
+      ? title
+      : ([tone.label, cat.label].filter(Boolean).join('·') || '物品');
+
+    // 拾者发布：照片重度模糊后才上传，原图不出本机
+    var image = state.image;
+    var colorFeature = state.colorFeature;
+    if (!isLost && image) {
+      image = await LF.ui.blurImage(image, 320);
+      colorFeature = null;
+    }
+
+    // AI 描述只为失者发布生成（后台检索用）；拾者发布不调用 AI，也不存 AI 描述
     var aiDesc = '', aiTags = [];
-    if (state.image) {
+    if (isLost && image) {
       LF.ui.toast('AI 正在识别图片特征…', 'info', 1800);
-      var r = await LF.ai.describeImage(state.image);
+      var r = await LF.ai.describeImage(image);
       if (r.ok) { aiDesc = r.desc; aiTags = r.tags; }
     }
 
     var res = await LF.api.createItem({
-      title: title,
+      title: finalTitle,
       detail: detail,
       location: location,
-      image: state.image,
-      colorFeature: state.colorFeature,
+      image: image,
+      colorFeature: colorFeature,
       aiDesc: aiDesc,
       aiTags: aiTags,
+      notice: notice,
+      category: isLost ? '' : category,
+      colorTone: isLost ? '' : colorTone,
       status: 'open',
       postType: state.postType,
       ownerId: LF.api.ownerId(),
@@ -542,12 +672,17 @@
 
     if (!res.ok) { LF.ui.toast('云端保存失败：' + res.error, 'error', 3500); return; }
 
-    LF.ui.toast(aiDesc ? '✅ 发布成功，AI 已生成特征描述' : '✅ 发布成功，已同步到云端', 'success');
+    LF.ui.toast('✅ 发布成功，已同步到云端', 'success');
     state.image = null; state.colorFeature = null;
-    ['pub-title', 'pub-detail', 'pub-location'].forEach(function (id) { el(id).value = ''; });
+    ['pub-title', 'pub-detail', 'pub-location', 'pub-notice'].forEach(function (id) {
+      if (el(id)) el(id).value = '';
+    });
+    if (el('pub-category')) el('pub-category').value = '';
+    if (el('pub-color')) el('pub-color').value = '';
     if (el('pub-image')) el('pub-image').value = '';
     if (el('pub-preview')) el('pub-preview').innerHTML = '';
     renderMyPosts();
+    if (LF.square && LF.square.render) LF.square.render();
   }
 
   async function renderMyPosts() {
@@ -671,7 +806,25 @@
   }
 
   /* ================= 事件绑定 ================= */
+  function populatePublishSelects() {
+    var catSel = el('pub-category');
+    var colorSel = el('pub-color');
+    if (catSel && !catSel.options.length) {
+      catSel.innerHTML = '<option value="">请选择类别</option>' +
+        (LF.config.categories || []).map(function (o) {
+          return '<option value="' + o.key + '">' + o.emoji + ' ' + LF.ui.esc(o.label) + '</option>';
+        }).join('');
+    }
+    if (colorSel && !colorSel.options.length) {
+      colorSel.innerHTML = '<option value="">请选择颜色</option>' +
+        (LF.config.colorTones || []).map(function (o) {
+          return '<option value="' + o.key + '">' + LF.ui.esc(o.label) + '</option>';
+        }).join('');
+    }
+  }
+
   function bind() {
+    populatePublishSelects();
     // 发布类型切换：失者发布 / 拾者发布
     document.querySelectorAll('.post-type').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -685,8 +838,11 @@
         if (locLabel) locLabel.textContent = (found ? '拾获位置' : '大概丢失位置') + '（🔒 匹配确认后显示）';
         if (pubBtn) pubBtn.textContent = found ? '发布拾获信息' : '发布失物信息';
         if (detailHint) detailHint.textContent = found
-          ? '细节不会公开展示。AI 会用它出题核实「来认领的人是不是真正的失主」。'
-          : '细节不会公开展示。AI 会用它出题核实「来认领的人是不是真的捡到了它」。';
+          ? '这条永远不公开。AI 会用它出题核实「来认领的人是不是真正的失主」。'
+          : '这条永远不公开。AI 会用它出题核实认领者是不是真的主人。';
+        // 拾者发布不填自由标题：由「颜色·类别」自动生成，避免把品牌型号写在广场上
+        var t = el('pub-title');
+        if (t) t.placeholder = found ? '拾者发布可留空：名称会自动用「颜色·类别」生成' : '例：黑色雨伞 / 蓝色书包';
       });
     });
 

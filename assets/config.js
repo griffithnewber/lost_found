@@ -28,5 +28,38 @@ LF.config = {
 
   // 数据表名
   table: 'lost_items',
-  messageTable: 'item_messages'   // 认领留言线程
+  messageTable: 'item_messages',  // 认领留言线程
+
+  /* ============================================================
+   * 公开信息分级（防止 AI 解读泄露独特征 → 冒领）
+   * 规则：公开页面上只出现「用户自己写的 / 自己选的」内容，
+   *      AI 只在后台做检索与核验，绝不在前台生成描述。
+   * ============================================================ */
+
+  // 拾者发布必选：类别决定了广场卡片的 emoji 与泛化标题
+  categories: [
+    { key: 'headphones', label: '耳机', emoji: '🎧' },
+    { key: 'cup',        label: '水杯', emoji: '🥤' },
+    { key: 'umbrella',   label: '雨伞', emoji: '☂️' },
+    { key: 'card',       label: '证件卡', emoji: '💳' },
+    { key: 'keys',       label: '钥匙', emoji: '🔑' },
+    { key: 'bag',        label: '书包/背包', emoji: '🎒' },
+    { key: 'phone',      label: '手机/电子设备', emoji: '📱' },
+    { key: 'book',       label: '书/笔记本', emoji: '📚' },
+    { key: 'clothes',    label: '衣物', emoji: '🧥' },
+    { key: 'other',      label: '其他', emoji: '📦' }
+  ],
+
+  // 拾者发布必选：主色调（只到"大概颜色"，不写品牌型号）
+  colorTones: [
+    { key: 'black',  label: '黑色', hex: '#2f3542' },
+    { key: 'white',  label: '白色', hex: '#e8eaed' },
+    { key: 'gray',   label: '灰色', hex: '#9aa3ad' },
+    { key: 'blue',   label: '蓝色', hex: '#4a9eff' },
+    { key: 'red',    label: '红色', hex: '#ff6b6b' },
+    { key: 'pink',   label: '粉色', hex: '#ff9ff3' },
+    { key: 'green',  label: '绿色', hex: '#51cf66' },
+    { key: 'yellow', label: '黄色', hex: '#ffd43b' },
+    { key: 'other',  label: '其他颜色', hex: '#b2bec3' }
+  ]
 };

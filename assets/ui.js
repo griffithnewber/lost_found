@@ -112,6 +112,94 @@
 
   LF.ui.MAX_COLOR_DIST = Math.sqrt(8 * 8 * 3) * 255; // ≈3533.4
 
+  /* ================= 公开信息工具（A 新增 · 防 AI 解读泄露） ================= */
+
+  /** 类别元信息：{ key, label, emoji } */
+  LF.ui.categoryMeta = function (key) {
+    var list = (LF.config && LF.config.categories) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+    return { key: key || '', label: '', emoji: '📦' };
+  };
+
+  /** 主色调元信息：{ key, label, hex } */
+  LF.ui.toneMeta = function (key) {
+    var list = (LF.config && LF.config.colorTones) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+    return { key: key || '', label: '', hex: '#b2bec3' };
+  };
+
+  /**
+   * 生成「重度模糊缩略图」——真正把像素糊掉再上传，不是 CSS 遮罩。
+   * 做法：缩到 20px（马赛克化）→ 放大回 320px（双线性）→ 叠加高斯模糊。
+   * 拾者发布的照片必须经过这一步：原图绝不上传云端。
+   */
+  LF.ui.blurImage = function (dataURL, size) {
+    size = size || 320;
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var tiny = document.createElement('canvas');
+          tiny.width = 20; tiny.height = 20;
+          var tctx = tiny.getContext('2d');
+          tctx.drawImage(img, 0, 0, 20, 20);
+
+          var out = document.createElement('canvas');
+          out.width = size; out.height = size;
+          var ctx = out.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          try { ctx.filter = 'blur(10px)'; } catch (e) { /* 老浏览器不支持 filter，马赛克已足够 */ }
+          ctx.drawImage(tiny, 0, 0, size, size);
+          resolve(out.toDataURL('image/jpeg', 0.6));
+        } catch (e) {
+          resolve(dataURL);   // 极端情况下退回原图（极罕见）
+        }
+      };
+      img.onerror = function () { resolve(dataURL); };
+      img.src = dataURL;
+    });
+  };
+
+  /**
+   * 列表缩略图 HTML（广场 / 我的发布 / 检索结果统一用这个）
+   * 拾者发布：有模糊图就显示模糊图 + 类别角标，没有就显示色卡占位；
+   * 失者发布：正常显示实物图（公开不构成冒领风险）。
+   */
+  LF.ui.thumbHTML = function (it) {
+    if (it.postType === 'found') {
+      var cat = LF.ui.categoryMeta(it.category);
+      var tone = LF.ui.toneMeta(it.colorTone);
+      // 只有「新流程发布的模糊图」才展示；老数据（无 category）一律用色卡占位，
+      // 避免历史原图继续在广场上暴露独特征
+      if (it.image && it.category) {
+        return '<div class="thumb-wrap">' +
+          '<img class="thumb blurred" src="' + it.image + '" alt="">' +
+          '<span class="thumb-tag">' + cat.emoji + '</span>' +
+          '</div>';
+      }
+      return '<div class="ph-card" style="background:linear-gradient(135deg,' + tone.hex + '33,' + tone.hex + '99)">' +
+        '<span class="ph-emoji">' + cat.emoji + '</span></div>';
+    }
+    return it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>';
+  };
+
+  /** 公开文字：只显示用户自己写的话（notice），绝不显示 AI 描述 */
+  LF.ui.noticeHTML = function (it) {
+    if (!it.notice) return '';
+    return '<div class="item-desc notice">「' + LF.ui.esc(it.notice) + '」</div>';
+  };
+
+  /** 拾者发布的泛化标题（类别 + 颜色），失者发布用用户自己填的标题 */
+  LF.ui.displayTitle = function (it) {
+    if (it.postType === 'found') {
+      var cat = LF.ui.categoryMeta(it.category);
+      var tone = LF.ui.toneMeta(it.colorTone);
+      var parts = [tone.label, cat.label].filter(Boolean).join('·');
+      return parts || it.title || '未命名物品';
+    }
+    return it.title || '未命名物品';
+  };
+
   /* ================= 列表渲染 ================= */
   LF.ui.renderMyPosts = function (items, opts) {
     opts = opts || {};
@@ -131,16 +219,16 @@
       var typeText = it.postType === 'found' ? '拾者发布' : '失者发布';
       return '' +
         '<div class="item">' +
-        (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
+        LF.ui.thumbHTML(it) +
         '<div class="item-body">' +
-        '<div class="item-title">' + LF.ui.esc(it.title) +
+        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) +
         ' <span class="badge">' + typeText + '</span>' +
         ' <span class="badge">已隐藏细节</span>' +
         ' <span class="badge' + (it.status === 'returned' ? '' : ' score') + '">' + LF.ui.esc(statusText) + '</span>' +
         '</div>' +
         '<div class="item-meta">' + LF.ui.esc(it.time || '') + '</div>' +
+        LF.ui.noticeHTML(it) +
         '<div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>' +
-        (it.aiDesc ? '<div class="item-desc ai">🤖 ' + LF.ui.esc(it.aiDesc) + '</div>' : '') +
         '<div class="item-ops">' + msgBtn + delBtn + '</div>' +
         '</div></div>';
     }).join('');
@@ -160,14 +248,14 @@
       var labelCls = r.level === 'high' ? '' : ' score';
       return '' +
         '<div class="item">' +
-        (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
+        LF.ui.thumbHTML(it) +
         '<div class="item-body">' +
-        '<div class="item-title">' + LF.ui.esc(it.title) +
+        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) +
         ' <span class="badge">' + (it.postType === 'found' ? '拾者发布' : '失者发布') + '</span>' +
         ' <span class="badge' + labelCls + '">' + LF.ui.esc(label) + '</span>' +
         '</div>' +
         '<div class="item-meta">' + LF.ui.esc(meta.methodText || '') + ' · ' + LF.ui.esc(it.time || '') + '</div>' +
-        (it.aiDesc ? '<div class="item-desc">🤖 ' + LF.ui.esc(it.aiDesc) + '</div>' : '') +
+        LF.ui.noticeHTML(it) +
         '<div class="item-desc">🔒 位置与细节需确认后显示</div>' +
         '<button class="ghost" style="margin-top:8px" data-claim="' + it.id + '">认领 / 确认匹配</button>' +
         '</div></div>';
