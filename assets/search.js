@@ -3,7 +3,7 @@
  *
  * 对外契约：
  *   LF.search.text(items, query, keywords) -> [{item, score}]   已按分数倒序
- *   LF.search.image(items, feat, aiDesc)   -> [{item, score}]   颜色 + 语义混合
+ *   LF.search.image(items, feat, aiDesc, aiTags) -> [{item, score}]   颜色 + 语义 + 关键词/色调加分
  *
  * 已知可优化点（C 的活）：
  *   1. 现在只有内置同义词表 + 2-gram，召回弱：建议接 LF.ai.expandQuery 的 keywords 做加权召回；
@@ -60,7 +60,10 @@
 
   function haystack(it) {
     var tags = Array.isArray(it.aiTags) ? it.aiTags.join(' ') : '';
-    return [it.title, it.notice, tags].filter(Boolean).join(' ');   // 公开说明优先；AI 描述仅作兜底
+    var cat = LF.ui.categoryMeta ? LF.ui.categoryMeta(it.category) : {};
+    var tone = LF.ui.toneMeta ? LF.ui.toneMeta(it.colorTone) : {};
+    // 公开说明优先；类别/颜色标签让「毛绒玩具/浅绿色」这类 AI 词能对上「其他/绿色」
+    return [it.title, tone.label, cat.label, it.notice, tags].filter(Boolean).join(' ');
   }
 
   /** 文字检索 */
@@ -81,21 +84,41 @@
       .sort(function (a, b) { return b.score - a.score; });
   };
 
-  /** 图片检索：有 AI 描述时按语义主判，颜色做补充 */
-  LF.search.image = function (items, feat, aiDesc) {
-    var hasDesc = !!aiDesc;
+  /** 图片检索：颜色特征主判 + AI 语义/关键词/色调多重加分
+   *  feat     查询图颜色特征（extractColorFeature）
+   *  aiDesc   查询图 AI 描述（describeImage，可空）
+   *  aiTags   查询图 AI 关键词（describeImage，可空） */
+  LF.search.image = function (items, feat, aiDesc, aiTags) {
+    aiDesc = String(aiDesc || '');
+    aiTags = Array.isArray(aiTags) ? aiTags : [];
+    var hasAI = !!(aiDesc || aiTags.length);
+    var queryBlob = expand(aiDesc + ' ' + aiTags.join(' ')).toLowerCase();
     return items.map(function (it) {
       var score = 0;
+      var hay = expand(haystack(it)).toLowerCase();
+      // 1) 颜色特征（发布时从原图计算）
       if (it.colorFeature && feat) {
         var d = LF.ui.colorDistance(feat, it.colorFeature);
-        score += (1 - d / LF.ui.MAX_COLOR_DIST) * (hasDesc ? 0.45 : 1);
+        var colorSim = 1 - d / LF.ui.MAX_COLOR_DIST;
+        if (colorSim > 0) score += colorSim * (hasAI ? 0.45 : 1);
       }
-      if (hasDesc) {
-        score += dice(aiDesc, haystack(it)) * 0.55;
-      }
+      // 2) 语义字面重叠（描述 vs 公开文本）
+      if (aiDesc) score += dice(aiDesc, hay) * 0.55;
+      // 3) AI 关键词命中物品公开文本（如「毛绒玩具」出现在说明里）
+      var tagHit = 0;
+      aiTags.forEach(function (t) {
+        t = String(t || '').toLowerCase();
+        if (t && hay.indexOf(t) >= 0) tagHit++;
+      });
+      score += Math.min(tagHit * 0.18, 0.36);
+      // 4) 色调/类别对上（AI 说「浅绿色」→ 物品标签「绿色」）
+      var tone = LF.ui.toneMeta ? LF.ui.toneMeta(it.colorTone) : {};
+      var cat = LF.ui.categoryMeta ? LF.ui.categoryMeta(it.category) : {};
+      if (tone.label && queryBlob.indexOf(tone.label.toLowerCase()) >= 0) score += 0.15;
+      if (cat.label && cat.label !== '其他' && queryBlob.indexOf(cat.label.toLowerCase()) >= 0) score += 0.15;
       return { item: it, score: score };
     })
-      .filter(function (x) { return x.score > (hasDesc ? 0.3 : 0.55); })
+      .filter(function (x) { return x.score > (hasAI ? 0.22 : 0.5); })
       .sort(function (a, b) { return b.score - a.score; });
   };
 })();

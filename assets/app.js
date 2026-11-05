@@ -533,12 +533,12 @@
       ? d.title
       : ([tone.label, cat.label].filter(Boolean).join('·') || '物品');
 
-    // 图片：拾者发布的照片必须重度模糊后才上传，原图绝不出本机
+    // 图片：拾者发布的照片必须重度模糊后才上传，原图绝不出本机。
+    // 颜色特征在拍照那一步已从原图算好（d.colorFeature），模糊只动上传图，特征保留用于图像检索。
     var image = d.image || null;
     var colorFeature = d.colorFeature || null;
     if (!isLost && image) {
       image = await LF.ui.blurImage(image, 320);
-      colorFeature = null;   // 模糊图的颜色特征没有比对价值
     }
 
     // AI 描述：只给失者发布生成（用于后台图片检索），拾者发布完全不调用 AI
@@ -757,7 +757,7 @@
     var feat = await LF.ui.extractColorFeature(dataURL);
     var ai = await LF.ai.describeImage(dataURL);   // 让图片变成可比较的文字
     var items = await LF.api.listPublicItems();
-    var rows = LF.search.image(items, feat, ai.desc);
+    var rows = LF.search.image(items, feat, ai.desc, ai.tags);
     rows = LF.match.annotate(LF.match.topN(rows, 20));
 
     if (btn) { btn.disabled = false; btn.textContent = '🖼️ 图像检索'; }
