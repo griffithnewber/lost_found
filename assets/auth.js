@@ -20,12 +20,7 @@
 
   function el(id) { return document.getElementById(id); }
 
-  /* ---------- 状态 ---------- */
-  function read() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); }
-    catch (e) { return null; }
-  }
-  LF.auth.user = read;
+  LF.auth.user = function () { return read(); };
   LF.auth.userId = function () {
     var u = read();
     return u ? u.userId : null;
@@ -35,21 +30,126 @@
     return u ? u.username : null;
   };
 
-  /* ---------- 密码哈希 ---------- */
+  /* ---------- 状态 ----------
+   * 正常情况写 localStorage；隐私模式 / 存储被禁时 setItem 会抛错，
+   * 此时退回内存态（本次会话仍有效），绝不让登录流程崩掉。
+   */
+  var memUser = null;
+
+  function saveUser(u) {
+    memUser = u || null;
+    try {
+      if (u) localStorage.setItem(STORE_KEY, JSON.stringify(u));
+      else localStorage.removeItem(STORE_KEY);
+    } catch (e) { /* 存储被禁：内存兜底 */ }
+  }
+
+  function read() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return memUser;
+  }
+
+  /* ---------- 错误翻译：云端报错多是英文，直接给人看会以为"没反应" ---------- */
+  function friendly(err, fallback) {
+    var m = err && (err.message || err.msg) || (typeof err === 'string' ? err : '') || '';
+    m = String(m);
+    if (/duplicate|unique/i.test(m)) return '这个用户名刚被别人注册了，换一个试试';
+    if (/permission denied/i.test(m)) return '云端暂时拒绝写入，稍等几秒再试一次';
+    if (/fetch|network|timeout|Failed to fetch|load failed/i.test(m)) return '网络不通或云端超时，检查网络后重试';
+    return m ? (fallback + '：' + m) : fallback;
+  }
+
+  /* ---------- 密码哈希 ----------
+   * crypto.subtle 只在 HTTPS / localhost 可用（有些内置浏览器、http 环境没有），
+   * 没有时降级为纯 JS 的 SHA-256，结果完全一致。
+   */
+  function sha256Hex(str) {
+    str = unescape(encodeURIComponent(str));          // 先转 UTF-8 字节串，中文密码也能算对
+    var rr = function (v, a) { return (v >>> a) | (v << (32 - a)); };
+    var mathPow = Math.pow, maxWord = mathPow(2, 32), result = '';
+    var words = [], asciiBitLength = str.length * 8;
+    var k = sha256Hex.k = sha256Hex.k || [];      // 常量表可以缓存
+    var h = [];                                    // 状态表必须每次重算，否则第二次调用起结果全错
+    var primeCounter = 0;
+    var isComposite = {};
+    for (var candidate = 2; primeCounter < 64; candidate++) {
+      if (!isComposite[candidate]) {
+        for (var i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+        h[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+        k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+      }
+    }
+    str += '\x80';
+    while (str.length % 64 - 56) str += '\x00';
+    for (i = 0; i < str.length; i++) {
+      var cc = str.charCodeAt(i);
+      words[i >> 2] |= cc << ((3 - i) % 4) * 8;
+    }
+    words[words.length] = ((asciiBitLength / maxWord) | 0);
+    words[words.length] = (asciiBitLength);
+    for (var j = 0; j < words.length;) {
+      var w = words.slice(j, j += 16);
+      var oldHash = h.slice(0);
+      for (i = 16; i < 64; i++) {
+        var w15 = w[i - 15], w2 = w[i - 2];
+        var s0 = rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3);
+        var s1 = rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      var a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+      for (i = 0; i < 64; i++) {
+        var S1 = rr(e, 6) ^ rr(e, 11) ^ rr(e, 25);
+        var ch = (e & f) ^ (~e & g);
+        var temp1 = (hh + S1 + ch + k[i] + w[i]) | 0;
+        var S0 = rr(a, 2) ^ rr(a, 13) ^ rr(a, 22);
+        var maj = (a & b) ^ (a & c) ^ (b & c);
+        var temp2 = (S0 + maj) | 0;
+        hh = g; g = f; f = e; e = (d + temp1) | 0;
+        d = c; c = b; b = a; a = (temp1 + temp2) | 0;
+      }
+      for (i = 0; i < 8; i++) {
+        h[i] = (h[i] + [a, b, c, d, e, f, g, hh][i]) | 0;
+      }
+      void oldHash;
+    }
+    for (i = 0; i < 8; i++) {
+      for (var jj = 3; jj + 1; jj--) {
+        var b2 = (h[i] >> (jj * 8)) & 255;
+        result += ((b2 >> 4).toString(16)) + ((b2 & 15).toString(16));
+      }
+    }
+    return result;
+  }
+
   async function hash(password, salt) {
-    var data = new TextEncoder().encode(salt + ':' + password);
-    var digest = await crypto.subtle.digest('SHA-256', data);
-    return Array.prototype.map.call(new Uint8Array(digest), function (b) {
-      return ('0' + b.toString(16)).slice(-2);
-    }).join('');
+    var msg = salt + ':' + password;
+    if (window.crypto && window.crypto.subtle && window.isSecureContext) {
+      try {
+        var data = new TextEncoder().encode(msg);
+        var digest = await window.crypto.subtle.digest('SHA-256', data);
+        return Array.prototype.map.call(new Uint8Array(digest), function (b) {
+          return ('0' + b.toString(16)).slice(-2);
+        }).join('');
+      } catch (e) { /* 落到纯 JS 实现 */ }
+    }
+    return sha256Hex(msg);
   }
 
   function makeSalt() {
-    var a = new Uint8Array(16);
-    crypto.getRandomValues(a);
-    return Array.prototype.map.call(a, function (b) {
-      return ('0' + b.toString(16)).slice(-2);
-    }).join('');
+    try {
+      var a = new Uint8Array(16);
+      crypto.getRandomValues(a);
+      return Array.prototype.map.call(a, function (b) {
+        return ('0' + b.toString(16)).slice(-2);
+      }).join('');
+    } catch (e) {
+      var out = '';
+      for (var i = 0; i < 32; i++) out += Math.floor(Math.random() * 16).toString(16);
+      return out;
+    }
   }
 
   function db() { return LF.api.getCloud().database; }
@@ -64,18 +164,20 @@
     if (password.length < 6) return { ok: false, error: '密码至少 6 位' };
 
     var exists = await db().from('users').select('id').ilike('username', username).limit(1);
-    if (exists.error) return { ok: false, error: exists.error.message };
-    if (exists.data && exists.data.length) return { ok: false, error: '这个用户名已被注册' };
+    if (exists.error) return { ok: false, error: friendly(exists.error, '查询用户名失败') };
+    if (exists.data && exists.data.length) {
+      return { ok: false, error: '这个用户名已被注册，去「登录」页输入同样信息即可进入' };
+    }
 
     var salt = makeSalt();
     var passHash = await hash(password, salt);
     var res = await db().from('users').insert({
       username: username, pass_salt: salt, pass_hash: passHash
     }).select();
-    if (res.error) return { ok: false, error: res.error.message };
+    if (res.error) return { ok: false, error: friendly(res.error, '注册失败') };
 
     var u = { userId: 'u_' + username.toLowerCase(), username: username };
-    localStorage.setItem(STORE_KEY, JSON.stringify(u));
+    saveUser(u);
     afterAuth(u);
     return { ok: true, user: u };
   };
@@ -83,7 +185,7 @@
   LF.auth.login = async function (username, password) {
     username = String(username || '').trim();
     var res = await db().from('users').select('*').ilike('username', username).limit(1);
-    if (res.error) return { ok: false, error: res.error.message };
+    if (res.error) return { ok: false, error: friendly(res.error, '查询账号失败') };
     if (!res.data || !res.data.length) return { ok: false, error: '用户不存在，请先注册' };
 
     var row = res.data[0];
@@ -91,13 +193,13 @@
     if (passHash !== row.pass_hash) return { ok: false, error: '密码不对，再试试' };
 
     var u = { userId: 'u_' + row.username.toLowerCase(), username: row.username };
-    localStorage.setItem(STORE_KEY, JSON.stringify(u));
+    saveUser(u);
     afterAuth(u);
     return { ok: true, user: u };
   };
 
   LF.auth.logout = function () {
-    localStorage.removeItem(STORE_KEY);
+    saveUser(null);
     document.dispatchEvent(new CustomEvent('lf:auth'));
   };
 
@@ -199,11 +301,17 @@
         var pass = el('auth-password').value;
         el('auth-error').textContent = '';
         btn.disabled = true; btn.textContent = mode === 'login' ? '登录中…' : '注册中…';
-        var res = mode === 'login' ? await LF.auth.login(name, pass) : await LF.auth.register(name, pass);
-        btn.disabled = false; btn.textContent = mode === 'login' ? '登录' : '注册并登录';
-        if (!res.ok) { el('auth-error').textContent = res.error; return; }
-        close();
-        LF.ui.toast('👋 欢迎，' + res.user.username, 'success');
+        try {
+          var res = mode === 'login' ? await LF.auth.login(name, pass) : await LF.auth.register(name, pass);
+          if (!res.ok) { el('auth-error').textContent = res.error || '未知错误，请重试'; return; }
+          close();
+          LF.ui.toast('👋 欢迎，' + res.user.username, 'success');
+        } catch (e) {
+          // 任何意外异常都显示出来，绝不让按钮卡在"注册中…"
+          el('auth-error').textContent = '出错了：' + ((e && e.message) ? e.message : e);
+        } finally {
+          btn.disabled = false; btn.textContent = mode === 'login' ? '登录' : '注册并登录';
+        }
       });
     }
     mask.classList.add('show');
