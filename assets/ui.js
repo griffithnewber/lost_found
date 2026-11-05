@@ -117,7 +117,11 @@
     opts = opts || {};
     var box = document.getElementById('my-posts');
     if (!box) return;
-    if (!items.length) { box.innerHTML = '<div class="empty">还没有发布记录</div>'; return; }
+    if (!items.length) {
+      box.innerHTML = '<div class="empty">你还没有发布记录<br>' +
+        '<span class="hint">想找东西？去「🏛️ 广场」看看别人捡到的</span></div>';
+      return;
+    }
     box.innerHTML = items.map(function (it) {
       var delBtn = opts.canDelete
         ? '<button class="btn-del" data-del="' + it.id + '">删除</button>'

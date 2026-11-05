@@ -54,6 +54,7 @@ git pull
 | `assets/ai.js` | A | AI 调用，只调用不修改 |
 | `assets/config.js` | A | endpoint / 模型配置，**绝对不要动** |
 | `assets/contact.js` | A | 认领留言闭环，只调用不修改 |
+| `assets/square.js` `square.css` | A | 广场列表（所有未被认领的失物），只调用不修改 |
 | `assets/search.js` `match.js` `stats.js` | C | 检索算法、匹配分级、统计 |
 | `index.html` | 共享 | 改结构前先在群里说一声 |
 
@@ -121,7 +122,9 @@ function enableDrop(zone, onFile) {
 └─────────────────┴─────────────────┘
 ```
 
-点“我丢了东西” → 进发布面板；点“我捡到东西” → 进检索面板。
+点“我丢了东西” → 进发布面板（`panel-publish`）；点“我捡到东西” → 进**广场**（`panel-square`，A 已做，能看到所有人发布的失物），广场里仍然可以再切到“找东西”做 AI 检索。
+
+> 对应触发方式：`document.querySelector('.tab[data-tab="square"]').click()`，复用现成的 tab 逻辑，不要自己写一套。
 进面板后顶部保留一个“切换”入口，随时能改；记住上次选择（`sessionStorage`），刷新不用重选。
 
 **实现要点**：

@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
 <link rel="stylesheet" href="assets/styles.css">
 <link rel="stylesheet" href="assets/contact.css">
+<link rel="stylesheet" href="assets/square.css">
 </head>
 <body>
 
@@ -20,6 +21,7 @@
 <div class="tabs">
   <div class="tab active" data-tab="publish">📤 发布失物</div>
   <div class="tab" data-tab="search">🔍 找东西</div>
+  <div class="tab" data-tab="square">🏛️ 广场</div>
 </div>
 
 <!-- 发布 -->
@@ -55,6 +57,17 @@
   <div id="search-results"></div>
 </div>
 
+<!-- 广场：所有人可见的待认领失物 -->
+<div class="panel" id="panel-square">
+  <div class="card">
+    <label>广场 · 所有未被认领的失物（只展示公开信息，隐藏细节与位置不展示）</label>
+    <input type="text" id="square-search" placeholder="按名称或特征筛，例：耳机 / 黑色 / 贴纸">
+    <button class="ghost" id="btn-square-refresh" style="margin-top:8px">🔄 刷新广场</button>
+    <div class="hint" id="square-count"></div>
+  </div>
+  <div id="square-list"></div>
+</div>
+
 <!-- 匹配确认弹窗 -->
 <div class="modal-mask" id="modal">
   <div class="modal">
@@ -78,5 +91,6 @@
 <script src="assets/stats.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/contact.js"></script>
+<script src="assets/square.js"></script>
 </body>
 </html>

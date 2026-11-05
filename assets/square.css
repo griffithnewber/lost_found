@@ -1,0 +1,6 @@
+/* assets/square.css —— 广场页样式（A 拥有，与 styles.css 分离） */
+
+.square-item { align-items: flex-start; }
+.square-ops { display: flex; flex-wrap: wrap; gap: 8px; }
+.square-ops button { font-size: 12px; padding: 6px 12px; margin-top: 8px; }
+.item-desc.muted { color: #999; font-size: 12px; }
