@@ -122,18 +122,20 @@
       var delBtn = opts.canDelete
         ? '<button class="btn-del" data-del="' + it.id + '">删除</button>'
         : '';
+      var msgBtn = '<button class="ghost btn-msg" data-thread="' + it.id + '">💬 留言<span class="badge hidden" data-msgcount="' + it.id + '"></span></button>';
+      var statusText = { open: '待认领', claimed: '有人认领', returned: '已找回' }[it.status || 'open'] || it.status;
       return '' +
         '<div class="item">' +
         (it.image ? '<img class="thumb" src="' + it.image + '" alt="">' : '<div class="thumb"></div>') +
         '<div class="item-body">' +
         '<div class="item-title">' + LF.ui.esc(it.title) +
         ' <span class="badge">已隐藏细节</span>' +
-        (it.status && it.status !== 'open' ? ' <span class="badge score">' + LF.ui.esc(it.status) + '</span>' : '') +
+        ' <span class="badge' + (it.status === 'returned' ? '' : ' score') + '">' + LF.ui.esc(statusText) + '</span>' +
         '</div>' +
         '<div class="item-meta">' + LF.ui.esc(it.time || '') + '</div>' +
         '<div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>' +
         (it.aiDesc ? '<div class="item-desc ai">🤖 ' + LF.ui.esc(it.aiDesc) + '</div>' : '') +
-        delBtn +
+        '<div class="item-ops">' + msgBtn + delBtn + '</div>' +
         '</div></div>';
     }).join('');
   };

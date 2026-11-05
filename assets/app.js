@@ -74,8 +74,9 @@
   }
 
   async function renderMyPosts() {
-    var items = await LF.api.listItems();
+    var items = await LF.api.listMyItems();   // 只显示本机发布的（原来会列出所有人的）
     LF.ui.renderMyPosts(items, { canDelete: true });
+    if (LF.contact && LF.contact.refreshBadges) LF.contact.refreshBadges();
   }
 
   async function refreshAll(btn) {
@@ -100,7 +101,7 @@
     var btn = el('btn-search-text');
     if (btn) { btn.disabled = true; btn.textContent = '检索中…'; }
 
-    var items = await LF.api.listItems();
+    var items = await LF.api.listPublicItems();
     var ex = await LF.ai.expandQuery(q);           // 失败自动降级为本地同义词
     var rows = LF.search.text(items, q, ex.keywords);
     rows = LF.match.annotate(LF.match.topN(rows, 20));
@@ -122,7 +123,7 @@
     var dataURL = await LF.ui.compressImage(raw);
     var feat = await LF.ui.extractColorFeature(dataURL);
     var ai = await LF.ai.describeImage(dataURL);   // 让图片变成可比较的文字
-    var items = await LF.api.listItems();
+    var items = await LF.api.listPublicItems();
     var rows = LF.search.image(items, feat, ai.desc);
     rows = LF.match.annotate(LF.match.topN(rows, 20));
 
@@ -170,6 +171,7 @@
     if (res.pass) {
       LF.ui.chatMsg('ai', '✅ 特征吻合，匹配确认成功！');
       LF.ui.showMatchSuccess(item);
+      if (LF.contact && LF.contact.attachFinderEntry) LF.contact.attachFinderEntry(item);
       LF.ui.toast('🎉 匹配确认成功', 'success');
       // 记录认领状态（C 的认领流会在此扩展状态机）
       LF.api.updateItem(item.id, { status: 'claimed', claimAt: new Date().toISOString() });
@@ -180,6 +182,7 @@
     if (remain <= 0) {
       LF.ui.chatMsg('ai', '❌ ' + (res.reason || '回答与物品细节不符') + '。次数已用完，为保护失主隐私，请联系发布者线下核实。');
       LF.ui.setAction('<button id="match-close">关闭</button>');
+      if (LF.contact && LF.contact.attachFinderEntry) LF.contact.attachFinderEntry(item);
       var btn = el('match-close');
       if (btn) btn.addEventListener('click', LF.ui.closeModal);
       return;
@@ -225,9 +228,11 @@
       if (e.key === 'Escape' && el('modal').classList.contains('show')) LF.ui.closeModal();
     });
 
+    // 认领留言闭环在 contact.js 里处理完后会广播，这里统一刷新列表
+    document.addEventListener('lf:changed', function () { renderMyPosts(); });
+
     // Tab 切换
-    document.querySelectorAll('.tab').forEach(function (t) {
-      t.addEventListener('click', function () {
+    document.querySelectorAll('.tab').forEach(function (t) {      t.addEventListener('click', function () {
         document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('active'); });
         document.querySelectorAll('.panel').forEach(function (x) { x.classList.remove('active'); });
         t.classList.add('active');

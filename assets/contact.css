@@ -1,0 +1,24 @@
+/* assets/contact.css —— 认领留言闭环样式（A 拥有，与 styles.css 分离，避免和 B 打架） */
+
+.hidden { display: none !important; }
+
+.item-ops { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.item-ops button { margin-top: 8px; }
+.btn-msg { font-size: 12px; padding: 5px 12px; }
+.btn-msg .badge { margin-left: 6px; }
+
+/* 线程 */
+.thread { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.thread-item {
+  background: #f6f8fc; border-radius: 10px; padding: 10px 12px;
+  border-left: 3px solid #9db8ef; font-size: 13px;
+}
+.thread-item.owner { background: #eef7ee; border-left-color: #66a06a; }
+.thread-title { font-weight: 600; font-size: 13px; color: #333; display: flex; justify-content: space-between; gap: 8px; }
+.thread-time { font-weight: 400; font-size: 11px; color: #9aa0a6; flex-shrink: 0; }
+.thread-content { margin-top: 4px; color: #333; white-space: pre-wrap; word-break: break-word; }
+.thread-contact { margin-top: 6px; font-size: 12px; color: #2d6cdf; background: #eef2fb; border-radius: 8px; padding: 5px 8px; display: inline-block; }
+.thread-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.thread-actions button { margin-top: 10px; }
+.thread-entry { margin-top: 12px; }
+.thread-entry .hint { margin-top: 6px; }

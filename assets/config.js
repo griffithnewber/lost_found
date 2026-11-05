@@ -27,5 +27,6 @@ LF.config = {
   },
 
   // 数据表名
-  table: 'lost_items'
+  table: 'lost_items',
+  messageTable: 'item_messages'   // 认领留言线程
 };

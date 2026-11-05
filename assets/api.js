@@ -151,6 +151,72 @@
     }
   };
 
+  /** 广场可见物品：排除已找回（status = 'returned'）的记录 */
+  LF.api.listPublicItems = async function () {
+    var items = await LF.api.listItems();
+    return items.filter(function (x) { return x.status !== 'returned'; });
+  };
+
+  /** 我的发布：按本机 ownerId 过滤（只有自己发的才出现在“我的发布”里） */
+  LF.api.listMyItems = async function () {
+    var me = LF.api.ownerId();
+    var items = await LF.api.listItems();
+    return items.filter(function (x) { return x.ownerId === me; });
+  };
+
+  /* ================= 留言（认领联系失主） ================= */
+
+  function rowToMsg(r) {
+    return {
+      id: r.id,
+      itemId: Number(r.item_id),
+      role: r.role || 'finder',
+      name: r.name || '',
+      contact: r.contact || '',
+      content: r.content || '',
+      createdAt: r.created_at || ''
+    };
+  }
+
+  /**
+   * 读取留言，itemId 为空时返回全部（用于一次性统计未读数）
+   * -> Promise<Message[]>
+   */
+  LF.api.listMessages = async function (itemId) {
+    try {
+      var q = getCloud().database.from(LF.config.messageTable).select('*');
+      if (itemId != null) q = q.eq('item_id', itemId);
+      var res = await q.order('created_at', { ascending: true }).limit(1000);
+      if (res.error) throw res.error;
+      return (res.data || []).map(rowToMsg);
+    } catch (e) {
+      console.error('[api] listMessages failed', e);
+      return [];
+    }
+  };
+
+  /**
+   * 发送一条留言
+   * msg = { itemId, role: 'finder'|'owner', name, contact, content }
+   * -> Promise<{ok, error?}>
+   */
+  LF.api.sendMessage = async function (msg) {
+    try {
+      var res = await getCloud().database.from(LF.config.messageTable).insert({
+        item_id: msg.itemId,
+        role: msg.role || 'finder',
+        name: msg.name || '',
+        contact: msg.contact || '',
+        content: msg.content
+      }).select();
+      if (res.error) throw res.error;
+      return { ok: true, message: rowToMsg(res.data[0]) };
+    } catch (e) {
+      console.error('[api] sendMessage failed', e);
+      return { ok: false, error: e.message || '未知错误' };
+    }
+  };
+
   /** 本浏览器的固定身份（C 的认领归属、防误删都基于它） */
   LF.api.ownerId = function () {
     var k = 'lf_owner_id';
