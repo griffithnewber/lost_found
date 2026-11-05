@@ -10,10 +10,14 @@ LF.config = {
   oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
   publishableKey: 'wbpk_lmzAUiNMSssVs6mpvimKsP_rbYHVaDjHjeefagx8HdBFj0s5Cvd1a5l',
 
-  // 模型约定：视觉识别用 4.6V，纯文本用低倍率 flash，压测可换 hy4free（0 积分）
+  // 模型约定：
+  //   vision 用于看图打标签与看图判答；
+  //   text 用同一视觉模型的文本能力——它稳定走 content 通道，
+  //   而部分纯思考模型只输出 reasoning_content，解析 JSON 更易出错。
+  //   压测想省积分可临时换成 cheap（hy4free，0 积分）。
   models: {
     vision: 'glm-4.6v',
-    text: 'glm-5.3-flash',
+    text: 'glm-4.6v',
     cheap: 'hy4free'
   },
 

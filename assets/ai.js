@@ -94,14 +94,40 @@
     return (text || reasoning || '').trim();
   }
 
-  /** 从模型输出里抠 JSON（容忍 ```json 包裹与前后废话） */
+  /** 从模型输出里抠 JSON（容忍 ```json 包裹、前后废话、多个花括号） */
   function parseJSON(raw) {
     if (!raw) return null;
     var s = String(raw).replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    // 先按最外层括号直接试
     var start = s.indexOf('{');
     var end = s.lastIndexOf('}');
-    if (start < 0 || end <= start) return null;
-    try { return JSON.parse(s.slice(start, end + 1)); } catch (e) { return null; }
+    if (start >= 0 && end > start) {
+      try { return JSON.parse(s.slice(start, end + 1)); } catch (e) { /* 继续找平衡括号 */ }
+    }
+    // 再按括号配对找第一个完整对象
+    for (var i = 0; i < s.length; i++) {
+      if (s[i] !== '{') continue;
+      var depth = 0, inStr = false, esc = false;
+      for (var j = i; j < s.length; j++) {
+        var ch = s[j];
+        if (inStr) {
+          if (esc) esc = false;
+          else if (ch === '\\') esc = true;
+          else if (ch === '"') inStr = false;
+          continue;
+        }
+        if (ch === '"') { inStr = true; continue; }
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            try { return JSON.parse(s.slice(i, j + 1)); } catch (e2) { break; }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   function failed(e) {
