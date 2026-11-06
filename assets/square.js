@@ -219,8 +219,10 @@
       return false;
     }
     LF.ui.toast(res.already ? '这条本来就在你名下' : '✅ 已绑到你账号，之后有人留言会进你的信箱', 'success', 3200);
-    var inp = el('bind-code');
-    if (inp) inp.value = '';
+    ['bind-code', 'bind-code-home'].forEach(function (k) {
+      var inp = el(k);
+      if (inp) inp.value = '';
+    });
     await LF.square.render();
     waitAndFocus(id);
     return true;
@@ -281,14 +283,16 @@
       });
     });
 
-    // 编号绑定：智能体给的 LF-xx 在这里换回归属
-    var bindBtn = el('btn-bind-code');
-    var bindInput = el('bind-code');
-    if (bindBtn) bindBtn.addEventListener('click', function () {
-      LF.square.bindByCode(bindInput ? bindInput.value : '');
-    });
-    if (bindInput) bindInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); LF.square.bindByCode(bindInput.value); }
+    // 编号绑定：智能体给的 LF-xx 在这里换回归属（广场顶部 + 首页各一个入口）
+    [['bind-code', 'btn-bind-code'], ['bind-code-home', 'btn-bind-code-home']].forEach(function (pair) {
+      var inp = el(pair[0]);
+      var btn = el(pair[1]);
+      if (btn) btn.addEventListener('click', function () {
+        LF.square.bindByCode(inp ? inp.value : '');
+      });
+      if (inp) inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); LF.square.bindByCode(inp.value); }
+      });
     });
 
     // 卡片里浮出的「绑到我账号」

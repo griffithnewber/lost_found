@@ -62,6 +62,14 @@
     <button id="btn-publish">发布失物信息</button>
     <button class="ghost" id="btn-refresh" style="margin-left:8px">🔄 同步云端</button>
   </div>
+  <div class="card code-bind" id="bind-card-home">
+    <div class="code-bind-row">
+      <span style="flex:0 0 auto;font-size:13px">🔑 在智能体里登记过？输编号把帖子绑回来：</span>
+      <input type="text" id="bind-code-home" placeholder="例：LF-20 或 20" maxlength="16" style="flex:1">
+      <button class="ghost" id="btn-bind-code-home">绑定</button>
+    </div>
+    <div class="hint">智能体拿不到你的账号，它登记的帖子一开始是「无主」的——绑定后才算你发的，别人留言也会进你信箱。</div>
+  </div>
   <div id="my-posts"></div>
 </div>
 
