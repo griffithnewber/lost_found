@@ -75,12 +75,15 @@
       var last = list.slice().sort(function (a, b) {
         return (a.createdAt || '') < (b.createdAt || '') ? -1 : 1;
       }).pop();
-      var mine = last.senderId === me;
+      // 智能体代发的留言没有 senderId：按 role 兜底判断方向（非发布者=finder，发布者=owner）
+      var mine = last.senderId ? last.senderId === me
+        : (it.ownerId === me ? last.role === 'owner' : last.role === 'finder');
       // 发言者称呼：发布者按帖子类型叫「拾者/失主」，对方按身份叫「失者/对方」
       var who;
       if (mine) who = '我';
       else if (last.role === 'owner') who = (it.postType === 'found' ? '拾者' : '失主');
       else who = (it.postType === 'found' ? '失者' : '对方');
+      if (!last.senderId) who += ' 🤖';   // 代发的标出来，别让人误会是网页账号发的
       var hasNew = !mine;   // 最后一条是别人发的 → 有新消息待读
       return '' +
         '<div class="item mb-item' + (it.status === 'returned' ? ' archived' : '') +

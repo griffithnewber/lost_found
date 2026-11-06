@@ -159,10 +159,15 @@
         : '你还没有给这条物品留过言。') + '</div>';
     } else {
       html += '<div class="thread">' + msgs.map(function (m) {
+        // 智能体代发的留言没有 senderId（它拿不到任何人的账号），
+        // 只能按 role 判断方向：非发布者=finder，发布者=owner。
+        // 这种消息单独标出来，避免双方误以为是网页账号发的。
+        var viaAgent = !m.senderId;
         var mine = m.senderId ? m.senderId === me : (isOwnerView ? m.role === 'owner' : m.role === 'finder');
         var who = mine ? '我'
           : (m.role === 'owner' ? '发布者'
             : (item.postType === 'found' ? '失者' : '认领的人') + (m.name ? ' · ' + m.name : ''));
+        if (viaAgent) who += ' 🤖（智能体代发）';
         return '' +
           '<div class="thread-item' + (mine ? ' owner' : '') + '">' +
           '<div class="thread-title">' + who +
