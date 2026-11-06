@@ -1,6 +1,6 @@
 # 失物招领 · 智能匹配（三人协作项目）
 
-> **队友先看 [`START-HERE.md`](START-HERE.md)** —— 装智能体、改智能体、改网页、加功能，全在里面。
+> **队友先看 [`TEAM-START.md`](TEAM-START.md)** —— 一份文件讲清怎么跑起来、现在能做什么、怎么不撞车。需要深入时再看 [`START-HERE.md`](START-HERE.md)（网页侧手册）。
 
 基于单文件 HTML + 原生 JS 的失物招领原型，已接入 WorkBuddy 云服务实现多设备数据共享。
 
