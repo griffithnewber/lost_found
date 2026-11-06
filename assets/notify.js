@@ -95,15 +95,21 @@
     });
 
     var seen = getSeen();
+    // 从没跑过时用「24 小时前」当基准：既不会把三个月前的老消息全轰一遍，
+    // 也不至于让第一次打开的人错过今天刚到的留言。
+    var seenTs = seen ? new Date(seen).getTime() : (Date.now() - 86400000);
+    if (isNaN(seenTs)) seenTs = Date.now() - 86400000;
+
     var latest = '';
     var fresh = [];
     msgs.forEach(function (m) {
       if (!mine[m.itemId]) return;
       var t = m.createdAt || '';
-      if (t > latest) latest = t;
+      var mt = new Date(t).getTime();
+      if (t && t > latest) latest = t;
       if (m.senderId === me) return;      // 自己发的不提醒
-      if (!seen) return;                  // 首次运行只建立基准，不把历史消息全轰一遍
-      if (t > seen) fresh.push(m);
+      if (isNaN(mt) || mt <= seenTs) return;
+      fresh.push(m);
     });
 
     if (latest) setSeen(latest);
