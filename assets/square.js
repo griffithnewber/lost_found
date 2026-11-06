@@ -63,7 +63,7 @@
         ? '🔒 具体特征待核验后由拾者告知'
         : '🔒 隐藏细节与具体位置需通过核验后由发布者告知';
       return '' +
-        '<div class="item square-item">' +
+        '<div class="item square-item" id="item-' + it.id + '">' +
         LF.ui.thumbHTML(it) +
         '<div class="item-body">' +
         '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) + statusBadge(it) + '</div>' +
@@ -129,7 +129,32 @@
     }
   }
 
-  LF.square.render = async function () {    var box = el('square-list');
+  /* ================================================================
+   * 链接直达某条记录（智能体登记后会发 #item-<id> 这样的链接）
+   * 打开后：切到广场 tab → 等卡片渲染出来 → 滚动到位并高亮闪烁
+   * ================================================================ */
+
+  function focusFromHash() {
+    var m = /^#item-(\d+)$/.exec(location.hash || '');
+    if (!m) return;
+    var id = Number(m[1]);
+    var tab = document.querySelector('.tab[data-tab="square"]');
+    if (tab) tab.click();
+    var tries = 0;
+    (function wait() {
+      var card = el('item-' + id);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('flash');
+        setTimeout(function () { card.classList.remove('flash'); }, 3600);
+      } else if (tries++ < 20) {
+        setTimeout(wait, 150);   // 渲染是异步的，最多等 3 秒
+      }
+    })();
+  }
+
+  LF.square.render = async function () {
+    var box = el('square-list');
     if (box) box.innerHTML = '<div class="empty">正在加载广场…</div>';
     var items = await LF.api.listPublicItems();
     // 只取最新 60 条，避免图片太多拖慢首屏
@@ -178,5 +203,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     bind();
     LF.square.render();   // 首页就预热一次，切过去不空
+    setTimeout(focusFromHash, 600);   // 等首屏渲染完再处理 #item-<id> 直达
   });
 })();

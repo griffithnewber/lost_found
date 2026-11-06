@@ -241,3 +241,12 @@ img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
 .item.archived { opacity: .68; }
 .item.archived .thumb { filter: grayscale(.5); }
 .item.mb-new { border-left: 3px solid #2d6cdf; background: #f5f8ff; }
+
+/* 智能体登记后发来的 #item-<id> 直达链接：目标卡片高亮闪烁 */
+.item.flash {
+  animation: item-flash 1.2s ease-in-out 3;
+}
+@keyframes item-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  50%      { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.45); }
+}
