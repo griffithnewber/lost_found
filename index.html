@@ -86,6 +86,15 @@
     <input type="text" id="square-search" placeholder="按名称或特征筛，例：耳机 / 黑色 / 贴纸">
     <button class="ghost" id="btn-square-refresh" style="margin-top:8px">🔄 刷新广场</button>
     <div class="hint" id="square-count"></div>
+
+    <div class="code-bind">
+      <label style="margin-top:14px">🔑 有编号？把这条记录绑到我账号</label>
+      <div class="code-bind-row">
+        <input type="text" id="bind-code" placeholder="例：LF-18 或 18" maxlength="16">
+        <button class="ghost" id="btn-bind-code">绑定</button>
+      </div>
+      <div class="hint">智能体登记完会给你编号。绑定后补照片、收留言、确认认领都算你自己那条。</div>
+    </div>
   </div>
   <div id="square-list"></div>
 </div>
@@ -124,5 +133,6 @@
 <script src="assets/square.js"></script>
 <script src="assets/auth.js"></script>
 <script src="assets/mailbox.js"></script>
+<script src="assets/notify.js"></script>
 </body>
 </html>

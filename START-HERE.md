@@ -97,8 +97,9 @@ bash expert/build.sh                    # 1. 重新打包
 | `assets/auth.js` | 334 | 注册登录、登录闸门 | A |
 | `assets/ai.js` | 332 | 调模型：看图、出核验题、判答 | A |
 | `assets/contact.js` | 273 | 留言线程 | A |
-| `assets/square.js` | 121 | 广场列表 | A |
+| `assets/square.js` | 243 | 广场列表、补照片、编号绑定、`#item-id` 直达 | A |
 | `assets/mailbox.js` | 117 | 信箱 | A |
+| `assets/notify.js` | 148 | 新留言提醒（30 秒轮询 + 红点 + 桌面通知） | A |
 | `assets/search.js` | 146 | 文字/图像检索算分 | C |
 | `assets/match.js` | 34 | 匹配打分 | C |
 | `assets/stats.js` | 61 | 统计 | C |
@@ -106,7 +107,21 @@ bash expert/build.sh                    # 1. 重新打包
 | `assets/app.js` | 946 | 入口、tab 切换、主流程 | B |
 | `assets/*.css` | — | 样式，按模块拆开 | B |
 
-加载顺序在 `index.html` 底部：`config → api → ai → ui → search → match → stats → app → contact → square → auth → mailbox`。**新模块要加在这串里，早了拿不到 `LF`，晚了没人调。**
+加载顺序在 `index.html` 底部：`config → api → ai → ui → search → match → stats → app → contact → square → auth → mailbox → notify`。**新模块要加在这串里，早了拿不到 `LF`，晚了没人调。**
+
+### 智能体登记的记录为什么「没有主人」，怎么补
+
+对话里没有登录身份，智能体写库时 `owner_id` 只能是空的。这条记录在广场上看得见、能被留言，但「谁发的」是空的——补图不算自己的、「我的发布」里没有、**别人留言也进不了自己信箱**，闭环就断在最后一步。三个补法（都已实现）：
+
+1. 智能体给的直达链接 `#item-<id>` → 打开后卡片闪一下并浮出「绑到我账号」
+2. 广场顶部「🔑 有编号？」输入 `LF-18` 或 `18` → 直接绑
+3. 补照片成功后弹一句确认 → 点确定就绑上
+
+绑定只允许发生在 `owner_id` 为空的记录上，已有归属的直接拒绝，防止抢绑。
+
+### 「有人联系我」怎么通知（智能体做不到，网页兜住）
+
+智能体没有定时器、也没有上一轮对话的记忆，**永远不会主动推送**。所以由 `assets/notify.js` 兜：登录后每 30 秒查一次与我相关的会话，有新消息就亮信箱红点、改标题角标、弹站内提示，授权后还能发桌面通知。真正的离线推送要接短信/微信/云函数，成本不划算，作品里就诚实说成「站内提醒 + 桌面通知」。
 
 ### 加一个功能的四步（以「寄存点」为例）
 

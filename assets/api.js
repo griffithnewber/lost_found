@@ -161,6 +161,56 @@
     }
   };
 
+  /** 按 id 取单条（编号绑定、直达链接用）-> Promise<Item|null> */
+  LF.api.findItemById = async function (id) {
+    try {
+      var res = await getCloud().database.from(LF.config.table).select('*').eq('id', id).limit(1);
+      if (res.error) throw res.error;
+      var row = (res.data || [])[0];
+      return row ? rowToItem(row) : null;
+    } catch (e) {
+      console.error('[api] findItemById failed', e);
+      return null;
+    }
+  };
+
+  /**
+   * 把一条「无归属」的记录绑到当前账号。
+   *
+   * 为什么需要：智能体登记时不知道用户是谁（对话里没有登录身份），写进去的记录
+   * owner_id 是空的。结果是——补图不算自己发的、「我的发布」看不到、更致命的是
+   * 别人留言后信箱里永远收不到，整条闭环断在最后一步。
+   * 用户在网页输入编号（LF-18 / 18）或点直达链接即可当场绑回。
+   *
+   * 规则：只允许绑定 owner_id 为空的记录。已有归属的直接拒绝，防止抢绑别人的帖子。
+   * -> Promise<{ok, code?: 'notfound'|'taken'|'nologin', already?: boolean, item?}>
+   */
+  LF.api.bindItemOwner = async function (id, ownerId) {
+    var me = ownerId || (window.LF && LF.auth && LF.auth.userId && LF.auth.userId()) || null;
+    if (!me) return { ok: false, code: 'nologin', error: '请先登录再绑定' };
+    try {
+      var db = getCloud().database;
+      var cur = await db.from(LF.config.table).select('*').eq('id', id).limit(1);
+      if (cur.error) throw cur.error;
+      var row = (cur.data || [])[0];
+      if (!row) return { ok: false, code: 'notfound', error: '没有编号为 LF-' + id + ' 的记录' };
+      if (row.owner_id) {
+        if (row.owner_id === me) return { ok: true, already: true, item: rowToItem(row) };
+        return { ok: false, code: 'taken', error: '这条记录已经绑到别的账号了' };
+      }
+      var upd = await db.from(LF.config.table).update({ owner_id: me }).eq('id', id);
+      if (upd.error) throw upd.error;
+      var item = rowToItem(Object.assign({}, row, { owner_id: me }));
+      saveCache(loadCache().map(function (x) {
+        return x.id === id ? Object.assign({}, x, { ownerId: me }) : x;
+      }));
+      return { ok: true, item: item };
+    } catch (e) {
+      console.error('[api] bindItemOwner failed', e);
+      return { ok: false, code: 'error', error: e.message || '未知错误' };
+    }
+  };
+
   /** 广场可见物品：排除已找回（status = 'returned'）的记录 */
   LF.api.listPublicItems = async function () {
     var items = await LF.api.listItems();

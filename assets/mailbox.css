@@ -19,3 +19,13 @@
 .mb-h { font-size: 13px; color: #444; margin: 6px 0 8px; }
 .mb-sub { padding: 12px; }
 .mb-item .thumb { width: 48px; height: 48px; }
+
+/* 信箱 tab 未读红点（notify.js 维护） */
+.tab { position: relative; }
+.mb-dot {
+  position: absolute; top: -4px; right: 2px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px; background: #E8453C; color: #fff;
+  font-size: 11px; line-height: 16px; text-align: center;
+  box-shadow: 0 1px 4px rgba(232,69,60,.4);
+}

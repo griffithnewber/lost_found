@@ -9,7 +9,8 @@
  *   - 已找回（returned）的自动不出现
  *
  * 对外接口：
- *   LF.square.render()   重新拉取并渲染（切到广场 tab、点刷新时调用）
+ *   LF.square.render()       重新拉取并渲染（切到广场 tab、点刷新时调用）
+ *   LF.square.bindByCode(x)  按编号（LF-18 / 18）把无归属记录绑到当前账号
  */
 (function () {
   'use strict';
@@ -121,8 +122,30 @@
         LF.ui.toast('补图失败：' + (res.error || '未知错误'), 'error', 3000);
         return;
       }
-      LF.ui.toast('照片已补上', 'success');
-      LF.square.render();
+
+      /* 补图后顺手确认归属。
+       * 智能体登记的记录 owner_id 是空的——不绑的话「我的发布」看不到、
+       * 别人留言也进不了自己信箱，整条闭环断在最后一步。所以这里问一句，
+       * 用户点确认就当场绑上；点取消也不影响补图本身。 */
+      if (!item.ownerId && LF.auth.userId()) {
+        var wantBind = window.confirm(
+          '照片已补上。\n\n' +
+          '这条记录还不知道是谁登记的（智能体登记时拿不到你的账号）。\n' +
+          '要绑到你的账号吗？绑定后，别人给你的留言会出现在你的信箱。'
+        );
+        if (wantBind) {
+          var b = await LF.api.bindItemOwner(item.id);
+          if (b.ok) LF.ui.toast('照片已补上，这条记录已归到你名下', 'success', 2600);
+          else LF.ui.toast('照片已补上，但绑定失败：' + (b.error || '未知错误'), 'error', 3500);
+        } else {
+          LF.ui.toast('照片已补上（这条仍是无归属记录，别人留言你收不到）', 'info', 3600);
+        }
+      } else {
+        LF.ui.toast('照片已补上', 'success');
+      }
+
+      await LF.square.render();
+      waitAndFocus(item.id);
     } catch (e) {
       console.error('[square] attachPhoto failed', e);
       LF.ui.toast('补图失败，换一张试试', 'error', 3000);
@@ -130,9 +153,78 @@
   }
 
   /* ================================================================
-   * 链接直达某条记录（智能体登记后会发 #item-<id> 这样的链接）
-   * 打开后：切到广场 tab → 等卡片渲染出来 → 滚动到位并高亮闪烁
+   * 编号绑定 + 链接直达
+   *
+   * 智能体登记时没有登录身份，写进去的记录 owner_id 是空的。这条记录在广场上
+   * 看得见、能被留言，但「谁发的」是空的：补图不算自己发的、我的发布里没有、
+   * 别人留言也进不了自己信箱——闭环就断在这里。
+   *
+   * 所以给两个入口把归属补回来：
+   *   ① 广场顶部输入编号（LF-18 / 18）→ 绑到当前账号
+   *   ② 智能体给的 #item-<id> 直达链接 → 卡片闪一下并浮出「绑到我账号」
    * ================================================================ */
+
+  function parseCode(raw) {
+    var m = /(\d+)/.exec(String(raw || ''));
+    return m ? Number(m[1]) : null;
+  }
+
+  function jumpTo(id) {
+    var card = el('item-' + id);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('flash');
+    setTimeout(function () { card.classList.remove('flash'); }, 3600);
+    offerBind(card, id);
+  }
+
+  /** 渲染是异步的，卡片可能还没出来，轮询等它（最多约 4 秒） */
+  function waitAndFocus(id, tries) {
+    tries = tries || 0;
+    if (el('item-' + id)) { jumpTo(id); return; }
+    if (tries < 26) setTimeout(function () { waitAndFocus(id, tries + 1); }, 150);
+  }
+
+  /** 无归属的记录在卡片里浮一条提示，一键绑给当前登录账号 */
+  function offerBind(card, id) {
+    if (!card || card.querySelector('.bind-bar')) return;
+    var item = all.filter(function (x) { return x.id === id; })[0];
+    if (!item || item.ownerId) return;         // 已有归属，不打扰
+    if (!LF.auth.userId()) return;             // 未登录：等他登录后重新点链接
+    var bar = document.createElement('div');
+    bar.className = 'bind-bar';
+    bar.innerHTML = '<span>📌 这条记录还没有归属。是你登记 / 捡到的吗？</span>' +
+      '<button class="ghost" data-bind-owner="' + id + '">绑到我账号</button>';
+    (card.querySelector('.item-body') || card).appendChild(bar);
+  }
+
+  /**
+   * 按编号绑定：LF-18、lf18、18 都认
+   * 绑定成功后这条记录就归当前账号，「我的发布」和信箱都能认到它。
+   */
+  LF.square.bindByCode = async function (raw) {
+    var id = parseCode(raw);
+    if (!id) { LF.ui.toast('编号长这样：LF-18，或者直接填 18', 'error', 3000); return false; }
+    if (!LF.auth.userId()) {
+      LF.auth.require('绑定前先登录，绑好之后这条才算你发的', function () { LF.square.bindByCode(raw); });
+      return false;
+    }
+    var res = await LF.api.bindItemOwner(id);
+    if (!res.ok) {
+      if (res.code === 'nologin') {
+        LF.auth.require('绑定前先登录', function () { LF.square.bindByCode(raw); });
+        return false;
+      }
+      LF.ui.toast(res.error || '绑定失败', 'error', 3500);
+      return false;
+    }
+    LF.ui.toast(res.already ? '这条本来就在你名下' : '✅ 已绑到你账号，之后有人留言会进你的信箱', 'success', 3200);
+    var inp = el('bind-code');
+    if (inp) inp.value = '';
+    await LF.square.render();
+    waitAndFocus(id);
+    return true;
+  };
 
   function focusFromHash() {
     var m = /^#item-(\d+)$/.exec(location.hash || '');
@@ -140,17 +232,7 @@
     var id = Number(m[1]);
     var tab = document.querySelector('.tab[data-tab="square"]');
     if (tab) tab.click();
-    var tries = 0;
-    (function wait() {
-      var card = el('item-' + id);
-      if (card) {
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        card.classList.add('flash');
-        setTimeout(function () { card.classList.remove('flash'); }, 3600);
-      } else if (tries++ < 20) {
-        setTimeout(wait, 150);   // 渲染是异步的，最多等 3 秒
-      }
-    })();
+    waitAndFocus(id);
   }
 
   LF.square.render = async function () {
@@ -197,6 +279,23 @@
       LF.auth.require('补照片前先登录一下，免得有人改别人的记录', function () {
         pickPhoto(item);
       });
+    });
+
+    // 编号绑定：智能体给的 LF-xx 在这里换回归属
+    var bindBtn = el('btn-bind-code');
+    var bindInput = el('bind-code');
+    if (bindBtn) bindBtn.addEventListener('click', function () {
+      LF.square.bindByCode(bindInput ? bindInput.value : '');
+    });
+    if (bindInput) bindInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); LF.square.bindByCode(bindInput.value); }
+    });
+
+    // 卡片里浮出的「绑到我账号」
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-bind-owner]');
+      if (!b) return;
+      LF.square.bindByCode(b.getAttribute('data-bind-owner'));
     });
   }
 
