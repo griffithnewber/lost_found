@@ -224,7 +224,12 @@
       });
       var obj = parseJSON(raw);
       if (!obj || !obj.question) throw new Error('bad json');
-      return { question: String(obj.question).slice(0, 120), ok: true };
+      var question = String(obj.question).slice(0, 120);
+      // 硬过滤：题目里出现细节片段 → 题目本身在泄题，退回本地模板题
+      if (leaksSecret(question, secretGrams(item))) {
+        return { question: localQuestion(item), ok: false };
+      }
+      return { question: question, ok: true };
     } catch (e) {
       notifyFallback(failed(e));
       return { question: localQuestion(item), ok: false };
@@ -258,9 +263,40 @@
     };
   }
 
+  /* ---------------- 细节泄漏防线 ----------------
+   * 核验的目的是防冒领：任何返回给认领者的文字（问题、拒绝理由）里
+   * 都不允许出现隐藏细节的片段，否则 AI 会把答案"说"给冒领者。
+   * 做法：把细节切成 2 字滑窗（剔除公开信息里也有的词），只要出现在
+   * 返回文本里就判定泄漏，整体替换成无信息量的话术。
+   */
+  function secretGrams(item) {
+    var pub = ((item.title || '') + (item.notice || '')).toLowerCase();
+    var segs = String(item.detail || '').split(/[，。,.、；;：:！!？?\s（）()「」『』·\-—_/\\]+/);
+    var grams = [];
+    segs.forEach(function (s) {
+      if (s.length < 2) return;
+      for (var j = 0; j + 2 <= s.length; j++) {
+        var g = s.slice(j, j + 2).toLowerCase();
+        if (pub.indexOf(g) >= 0) continue;   // 标题/公开说明里也有 → 不算机密
+        if (grams.indexOf(g) < 0) grams.push(g);
+      }
+    });
+    return grams;
+  }
+
+  function leaksSecret(text, grams) {
+    text = String(text || '').toLowerCase();
+    if (!text) return false;
+    for (var i = 0; i < grams.length; i++) {
+      if (text.indexOf(grams[i]) >= 0) return true;
+    }
+    return false;
+  }
+
   LF.ai.judgeAnswer = async function (item, question, answer, answerImage) {
     var detail = (item.detail || '').slice(0, 400);
     if (!detail || !answer) return localJudge(item, answer || '');
+    var grams = secretGrams(item);
     var prompt = '失物名称：' + item.title + '\n' +
       '失主填写的隐藏细节：' + detail + '\n' +
       '刚才的提问：' + question + '\n' +
@@ -268,11 +304,13 @@
       (answerImage ? '（认领者还上传了一张照片，请看图判断是否与描述相符）\n' : '') +
       '请判断回答是否与隐藏细节中的关键特征吻合。' +
       '允许表达不同但意思一致；含糊、绕开、只复述问题、只讲礼貌话的一律不通过。' +
+      '⚠️ 保密要求：reason 只能说明不通过的方面（如"颜色不符""细节不足""未答出关键特征"），' +
+      '绝对不能出现隐藏细节中的任何词、正确答案或示例，否则就是泄题。' +
       '输出 JSON：{"pass":true 或 false,"reason":"20 字内中文说明"}';
     try {
       var raw = await callLLM({
         model: LF.config.models.vision,
-        system: '你是失物认领核验员，严格但不刁难。只输出 JSON。',
+        system: '你是失物认领核验员，严格但不刁难。只输出 JSON。reason 里绝不能泄露正确答案。',
         user: prompt,
         image: answerImage || null,
         json: true,
@@ -280,7 +318,12 @@
       });
       var obj = parseJSON(raw);
       if (!obj || typeof obj.pass !== 'boolean') throw new Error('bad json');
-      return { pass: obj.pass, reason: String(obj.reason || '').slice(0, 60), ok: true };
+      var reason = String(obj.reason || '').slice(0, 60);
+      // 硬过滤：理由里出现细节片段 → 整体替换，绝不把答案带给冒领者
+      if (leaksSecret(reason, grams)) {
+        reason = obj.pass ? '特征吻合' : '回答与隐藏细节不符，请再试试';
+      }
+      return { pass: obj.pass, reason: reason, ok: true };
     } catch (e) {
       notifyFallback(failed(e));
       return localJudge(item, answer);
