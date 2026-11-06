@@ -11,8 +11,12 @@
  *   3. 图片检索：把 ai_desc / ai_tags 的语义相似度做成主信号，颜色退为加分项；
  *   4. 阈值与排序策略需用真实数据回归（建议在 tests/ 下留 20 条种子数据做对照）。
  *
- * 注意：搜索打分只使用公开字段（title / aiDesc / aiTags / image），
- *      不使用 detail（隐藏细节），避免通过检索反推失主信息。
+ * 注意：搜索打分以公开字段（title / aiDesc / aiTags / image）为主；
+ *      detail（隐藏细节）作为独立的「私有信号」叠加——真正的失主才写得出
+ *      「写有某某名字」这类描述，必须让它在检索里生效，否则丢失方反而找不到。
+ *      防猜设计：仅当公开字段已有基本匹配（base > 0.05）时 detail 命中才加分，
+ *      防止冒领者纯靠枚举细节词拿高分。（彻底的防反推要等 L2 服务端代理，
+ *      把 detail 比对挪出前端——见 ROADMAP）
  */
 (function () {
   'use strict';
@@ -70,6 +74,7 @@
   LF.search.text = function (items, query, keywords) {
     keywords = keywords || [];
     var qExpanded = expand(query) + ' ' + keywords.join(' ');
+    var qLower = String(query || '').toLowerCase();
     return items.map(function (it) {
       var text = haystack(it);
       var base = dice(qExpanded, text);
@@ -78,7 +83,24 @@
         if (k && text.toLowerCase().indexOf(String(k).toLowerCase()) >= 0) bonus += 0.05;
       });
       if (it.title && query && it.title.indexOf(query) >= 0) bonus += 0.15;
-      return { item: it, score: Math.min(1, base + Math.min(bonus, 0.3)) };
+
+      // 私有信号：隐藏细节命中。真失主才写得出「证件上写着某某名字」，
+      // 这类描述在公开字段里永远对不上，必须单独比对并给高权重；
+      // 用原始查询比对（扩展词会稀释分母）；AI 扩展关键词命中细节再加分。
+      // 要求公开字段已有基本匹配，防止纯猜细节的人拿高分。
+      var sec = it.detail ? dice(qLower, it.detail) : 0;
+      if (it.detail && sec > 0) {
+        var secKW = 0;
+        keywords.forEach(function (k) {
+          if (k && it.detail.toLowerCase().indexOf(String(k).toLowerCase()) >= 0) secKW++;
+        });
+        sec = Math.min(1, sec + secKW * 0.15);
+      }
+
+      var score = base + Math.min(bonus, 0.3);
+      // 细节命中是「确认级」信号：权重高于任何公开信号，确保真失主稳居榜首
+      if (sec > 0.1 && base > 0.05) score = Math.min(1, score + sec * 0.9);
+      return { item: it, score: score };
     })
       .filter(function (x) { return x.score > 0.08; })
       .sort(function (a, b) { return b.score - a.score; });
