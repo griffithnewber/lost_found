@@ -1,15 +1,15 @@
 {
   "name": "lost-found-assistant",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Conversational lost-and-found agent: registers found items, matches lost reports, and verifies ownership with hidden-feature questions.",
   "author": {
     "name": "lost_found team"
   },
-  "agents": ["./agents/lost-found-assistant.md"],
-
+  "agents": [
+    "./agents/lost-found-assistant.md"
+  ],
   "expertType": "agent",
   "agentName": "lost-found-assistant",
-
   "displayName": {
     "en": "Lost & Found Agent",
     "zh": "寻物官 · 阿寻"
@@ -30,13 +30,31 @@
   },
   "plugin": "lost-found-assistant",
   "tags": [
-    { "en": "Lost & Found", "zh": "失物招领" },
-    { "en": "Conversational Intake", "zh": "对话式信息采集" },
-    { "en": "Privacy-safe Verification", "zh": "隐私核验" }
+    {
+      "en": "Lost & Found",
+      "zh": "失物招领"
+    },
+    {
+      "en": "Conversational Intake",
+      "zh": "对话式信息采集"
+    },
+    {
+      "en": "Privacy-safe Verification",
+      "zh": "隐私核验"
+    }
   ],
   "quickPrompts": [
-    { "zh": "我在操场捡到一副黑色耳机，想登记招领", "en": "I found a pair of black earphones on the playground and want to register it" },
-    { "zh": "我丢了一张写有名字的证件卡，帮我找找有没有人捡到", "en": "I lost an ID card with a name on it, help me check if someone found it" },
-    { "zh": "我来认领那副黑色耳机，可以核验一下特征吗", "en": "I'm here to claim the black earphones, can we verify the features" }
+    {
+      "zh": "我在操场捡到一副黑色耳机，想登记招领",
+      "en": "I found a pair of black earphones on the playground and want to register it"
+    },
+    {
+      "zh": "我丢了一张写有名字的证件卡，帮我找找有没有人捡到",
+      "en": "I lost an ID card with a name on it, help me check if someone found it"
+    },
+    {
+      "zh": "我来认领那副黑色耳机，可以核验一下特征吗",
+      "en": "I'm here to claim the black earphones, can we verify the features"
+    }
   ]
 }
