@@ -135,8 +135,8 @@
   };
 
   /**
-   * 局部更新：认领状态流转、归属等
-   * patch 支持 { status, claimAt, aiDesc, aiTags, ownerId }
+   * 局部更新：认领状态流转、归属、补照片等
+   * patch 支持 { status, claimAt, aiDesc, aiTags, ownerId, image, colorFeature }
    */
   LF.api.updateItem = async function (id, patch) {
     var row = {};
@@ -145,6 +145,8 @@
     if ('aiDesc' in patch) row.ai_desc = patch.aiDesc;
     if ('aiTags' in patch) row.ai_tags = patch.aiTags;
     if ('ownerId' in patch) row.owner_id = patch.ownerId;
+    if ('image' in patch) row.image = patch.image;
+    if ('colorFeature' in patch) row.color_feature = patch.colorFeature;
     try {
       var res = await getCloud().database.from(LF.config.table).update(row).eq('id', id);
       if (res.error) throw res.error;
