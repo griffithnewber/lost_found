@@ -82,13 +82,26 @@
   }
 
   /* ================================================================
-   * 补照片
+   * 补照片：统一入口（广场卡片 + 「我的发布」卡片共用）
    *
-   * 为什么需要：智能体只能写文字，它登记的记录 image 是空的，广场上就是
-   * 一张色卡占位。这里给一个补图入口，规则和发布流程保持一致：
+   * 为什么需要：智能体只能写文字，它登记的记录 image 是空的。之前补图
+   * 只能在广场上点——但用户绑定编号后最常去的是「我的发布」，那里没有
+   * 入口就得折回广场找，闭环断在半路。现在「我的发布」也渲染补图按钮，
+   * 都走这一个方法；item 先从广场缓存找，找不到再按 id 拉一次库。
+   * 规则和发布流程保持一致：
    *   先压缩（480 / JPEG 0.75）→ 从压缩图算颜色特征 → 拾者记录再模糊
    * 原图始终不出本机；颜色特征留在库里供图像检索用。
    * ================================================================ */
+
+  /** 任何地方（广场 / 我的发布）点「📷 补张照片」都走这里 */
+  LF.square.addPhotoById = async function (id) {
+    var item = all.filter(function (x) { return x.id === id; })[0];
+    if (!item) item = await LF.api.findItemById(id);   // 「我的发布」场景：广场缓存里可能有，也可能没有
+    if (!item) { LF.ui.toast('没有找到这条记录', 'error', 3000); return; }
+    LF.auth.require('补照片前先登录一下，免得有人改别人的记录', function () {
+      pickPhoto(item);
+    });
+  };
 
   function pickPhoto(item) {
     if (!item) return;
@@ -144,7 +157,7 @@
         LF.ui.toast('照片已补上', 'success');
       }
 
-      await LF.square.render();
+      document.dispatchEvent(new CustomEvent('lf:changed'));   // 广场 + 「我的发布」一起刷新
       waitAndFocus(item.id);
     } catch (e) {
       console.error('[square] attachPhoto failed', e);
@@ -271,16 +284,11 @@
     // 认领/留言处理完（留言会广播 lf:changed）后刷新广场状态
     document.addEventListener('lf:changed', function () { LF.square.render(); });
 
-    // 补照片：登录后才能补，避免有人随手改别人的记录
+    // 补照片：登录后才能补，避免有人随手改别人的记录（广场 + 我的发布共用 addPhotoById）
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-addphoto]');
       if (!btn) return;
-      var id = Number(btn.getAttribute('data-addphoto'));
-      var item = all.filter(function (x) { return x.id === id; })[0];
-      if (!item) return;
-      LF.auth.require('补照片前先登录一下，免得有人改别人的记录', function () {
-        pickPhoto(item);
-      });
+      LF.square.addPhotoById(Number(btn.getAttribute('data-addphoto')));
     });
 
     // 编号绑定：智能体给的 LF-xx 在这里换回归属（广场顶部 + 首页各一个入口）

@@ -216,10 +216,11 @@
         : '';
       var msgBtn = '<button class="ghost btn-msg" data-thread="' + it.id + '">💬 留言<span class="badge hidden" data-msgcount="' + it.id + '"></span></button>';
       var statusText = { open: '待认领', claimed: '有人认领', returned: '已找回' }[it.status || 'open'] || it.status;
-      var typeText = it.postType === 'found' ? '拾者发布' : '失者发布';
+      // 「我的发布」页的身份标签要体现"这是我的"：拾者/失者只作后缀保留
+      var typeText = it.postType === 'found' ? '我的发布 · 拾者' : '我的发布 · 失者';
       var returned = it.status === 'returned';
       // 已找回 = 完结归档：隐藏细节徽章失去意义，换成找回日期
-      var badges = ' <span class="badge">' + typeText + '</span>';
+      var badges = ' <span class="badge badge-mine">' + typeText + '</span>';
       if (returned) {
         var d = it.claimAt ? new Date(it.claimAt) : null;
         var when = d && !isNaN(d.getTime())
@@ -240,7 +241,12 @@
         (returned
           ? '<div class="item-desc">🎉 物品已顺利找回，已从广场下架</div>'
           : '<div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>') +
-        '<div class="item-ops">' + msgBtn + delBtn + '</div>' +
+        // 智能体只能存文字，它登记的记录没有图——不跳广场也能在这里直接补
+        '<div class="item-ops">' + msgBtn +
+        (!it.image && !returned
+          ? '<button class="ghost btn-photo" data-addphoto="' + it.id + '">📷 补张照片</button>'
+          : '') +
+        delBtn + '</div>' +
         '</div></div>';
     }).join('');
   };
