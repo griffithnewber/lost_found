@@ -8,10 +8,20 @@ https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J
 
 任何人打开该链接即可发布、检索失物；数据存在云端数据库（`lost_items` 表），所有设备共享同一份数据。
 
+## 两部分，分开维护
+
+| | 是什么 | 怎么改 | 维护手册 |
+|---|---|---|---|
+| **智能体** | 「寻物官 · 阿寻」，对话式完成登记/匹配/核验，比赛提交的主体 | 改 `expert/lost-found-assistant/agents/lost-found-assistant.md`（一份提示词，不写代码） | **[`expert/README.md`](expert/README.md)** 与 [`expert/TESTING.md`](expert/TESTING.md) |
+| **网页版** | 可视化广场，看得到全部记录和状态 | 改 `assets/*.js` | 本文档下文 |
+
 ## 项目结构
 
 ```
-index.html            # 主应用（线上运行的版本：发布/检索/AI确认/云端同步）
+index.html            # 网页版主应用（发布/检索/AI确认/云端同步）
+assets/               # 网页版模块：api / auth / search / match / mailbox / ui 等
+expert/               # 智能体源码与协作手册（见 expert/README.md）
+docs/                 # 计划文档 + 打包好的智能体 zip
 lost_found_v2.html    # 归档：第一阶段本地版（localStorage）
 lost_found_cloud.html # 归档：LeanCloud 方案（该平台已停止注册，仅留参考）
 ```
