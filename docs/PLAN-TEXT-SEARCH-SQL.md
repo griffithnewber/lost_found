@@ -1,10 +1,11 @@
 # 文字检索迁移到共享 PostgreSQL 函数
 
-> 分支：`feat/shared-text-search-v1`（基于 main `9bfc388`）
+> 分支：`feat/shared-text-search-v1`（已并入 main）
 > 迁移文件：`db/migrations/2026-11-07_lf_search_text_v1.sql`、`..._lf_search_index.sql`、`..._harden_public_columns.sql`
-> 测试：`tests/sql/*.test.mjs`（**49 条，全绿**）+ `tests/live/rpc_smoke.mjs`（等测试库）
+> 测试：`tests/sql/*.test.mjs`（**87 条，全绿**）+ `tests/live/*`
 > 算法版本常量：`lf-text-v1@cc9e40d`
-> 状态：**代码完成、离线测试通过、未 commit、未部署、未对生产库执行任何 DDL/DML**
+> 状态：**2026-11-07 已在生产执行三份迁移并通过跨入口验收**（见文末「§11 上线记录」）。
+> 唯一未完成项：`features.textSearch` 默认开启的那次前端发布（代码已就绪，等发布机执行）。
 
 ---
 
@@ -537,3 +538,49 @@ SELECT (SELECT proowner::regrole::text FROM pg_proc WHERE proname='lf_search_tex
 3. `anonymous` 可 `UPDATE/DELETE` 任意 `lost_items` 行（`lost_items_update_all` USING `true`）：
    任何访客能改别人的记录，甚至把 `status` 改成 `returned`。这是比 detail 更宽的口子，
    修它需要引入归属校验（`owner_id = auth.uid()` 之类），**不适合塞进这次迁移**，必须单独立项。
+
+---
+
+## 11. 上线记录（2026-11-07 生产执行）
+
+应用：`wbapp_lmzAUiNMSssVs6mpvimKsP`（`lost-found-75068`）。执行前基线见
+`tests/live/out/prod-baseline-2026-11-07.md`（当时 `lf_*` 函数 0 个、无 `created_at` 索引、
+`lost_items` 18 列对 anon 全可读）。
+
+### 11.1 三份迁移的实际结果
+
+| 迁移 | 语句数 | 结果 |
+|---|---|---|
+| `2026-11-07_lf_search_text_v1.sql` | 29 | 全部成功。9 个函数（8 helper + 主函数），主函数 `SECURITY DEFINER` / `STABLE` / `search_path=pg_catalog`，owner = `lost_items` 表 owner |
+| （同上）授权 | 11 | 主函数 `REVOKE PUBLIC` → `GRANT anon/authenticated/service_role`；8 个 helper 逐签名 `REVOKE PUBLIC, anon, authenticated, service_role`；`NOTIFY pgrst,'reload schema'` 已发 |
+| `2026-11-07_lf_search_index.sql` | 2 | `idx_lost_items_created_id_desc (created_at DESC, id DESC)` 已建 + 注释；另补一次 `ANALYZE` |
+| `2026-11-07_harden_public_columns.sql` | 2 | 收回表级 SELECT，按 14 列授权。`detail/location/ai_desc/ai_tags` 对 anon/authenticated 已不可读 |
+
+注：网关一次只接受**单条**语句（多语句报 `DATABASE_42601`），所以按语句逐条执行，
+函数体作为完整语句提交，未按分号拆函数体。
+
+### 11.2 执行后实测
+
+- 权限矩阵：`anon` 对 8 个 helper `EXECUTE=false`，对主函数 `true`；表级 `SELECT=false`，
+  `INSERT/UPDATE/DELETE` 仍 `true`（写-only 列照旧可写）。
+- 匿名实跑：`select id,detail` / `id,location` / `id,ai_desc` / `*` 全部 `DATABASE_42501`；
+  14 列公开字段正常返回。
+- 匿名 rpc：`lf_dice_v1` → 42501；`lf_expand_v1` / `lf_bigrams_v1` / `lf_haystack_v1` → PGRST202；
+  `lf_search_text_v1` → 200 且返回 2 行。网关 schema 缓存已刷新。
+- 跨入口一致（同一句「黑色耳机」，`p_keywords=[]`）：
+  - 网页（真浏览器 + `?textsearch=1`）：LF-18 / 65% / 很可能就是它；LF-30 / 21% / 参考项
+  - 阿寻 1.15.1（真对话）：id 18 → 0.6452 high，id 30 → 0.2086 low，顺序相同
+- 核验：阿寻按编号取到 `detail`（划痕 + 贴纸），回复只给泛称问题，未泄露原文。
+- 业务流程（生产、专用测试记录 LF-31 + 两个验收账号）：绑定 → 照片持久化 + 模糊展示 →
+  交叉抢绑被拒 → 留言 → 对方信箱「进行中 / 🆕 新回复」→ 回复 → 确认认领 → `status=returned`
+  且两侧广场均下架。
+
+### 11.3 回退
+
+- 函数：按 §8 文末的 9 条 `DROP FUNCTION` 逆序删除；不影响表数据。
+- 索引：`DROP INDEX IF EXISTS public.idx_lost_items_created_id_desc;`
+- 列权限：`GRANT SELECT ON TABLE public.lost_items TO anon, authenticated;`
+  —— 该语句会一次性恢复 18 列（含 detail/location），**只能在明确决定后手工执行**，
+  不得写成自动回退步骤。
+- 前端：`assets/config.js` 把 `features.textSearch` 改回 `false` 并重发；
+  或对单个访问者用 `?textsearch=0`。
