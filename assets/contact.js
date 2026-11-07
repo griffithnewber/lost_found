@@ -3,14 +3,18 @@
  *
  * 解决什么问题：
  *   以前 AI 确认通过后只提示一句“请留意发布者联系”，失主根本收不到任何东西。
- *   这个模块把「找到东西的人 → 留言 → 失主在“我的发布”里看到 → 回复/确认找回 → 物品从广场下架」
+ *   这个模块把「找到东西的人 → 留言 → 失主在「📬 信箱」里看到 → 回复/确认找回 → 物品从广场下架」
  *   做成真正可用的闭环。
  *
  * 对外接口：
  *   LF.contact.attachFinderEntry(item)   在确认成功的结果区追加「给失主留言」按钮
  *   LF.contact.openFinder(item)          打开“给失主留言”表单
  *   LF.contact.openThread(item)          失主视角：查看该物品的全部留言、回复、标记已找回
- *   LF.contact.refreshBadges()           刷新“我的发布”里每个物品的留言数角标
+ *   LF.contact.refreshBadges()           刷新列表里每个物品的留言数角标
+ *
+ * 2026-11-07 改版：认领核验（出题判答）已整体搬到聊天框由阿寻完成，
+ *   本文件只剩「留言线程 + 客户回复 + 确认找回」，不再有任何 AI 问答逻辑。
+ *   卡片上的「我要认领」也改成了「🔍 去聊天框核验」，点击只给去向提示（见 square.js）。
  *
  * 约定（B 改渲染结构时请保留这两个属性，事件委托靠它们工作）：
  *   <button data-thread="物品id">💬 留言</button>      → 打开失主留言线程
@@ -78,8 +82,8 @@
     // 收件方称呼：拾者发布的帖子 → 收信人是拾者；失者发布的 → 收信人是失主
     var who = isFound ? '拾者' : '失主';
     var box = open('✉️ 给发布者留言', isFound
-      ? '这件物品是拾到的人发布的。留言会出现在对方「我的发布」和信箱里。'
-      : '留言会出现在发布者的「我的发布」和信箱里，只有对方能看到你的联系方式。');
+      ? '这件物品是拾到的人发布的。留言会出现在对方网页的「📬 信箱」里。'
+      : '留言会出现在发布者网页的「📬 信箱」里，只有对方能看到你的联系方式。');
     box.innerHTML = '' +
       '<div class="thread-item">' +
       '<div class="thread-title">' + esc(item.title) + '</div>' +
@@ -118,7 +122,7 @@
       document.getElementById('contact-body').innerHTML = '' +
         '<div class="match-box">' +
         '<div>✅ 留言已送达' + who + '（发布者）。</div>' +
-        '<div style="margin-top:6px">对方会在网站的“我的发布 → 💬 留言”和信箱里看到，并通过你留的联系方式找你。</div>' +
+        '<div style="margin-top:6px">对方会在网页「📬 信箱」里看到你的留言，并通过你留的联系方式找你。</div>' +
         '<div style="margin-top:6px;color:#888">如果 24 小时没有回应，可以再补充一条更具体的描述。</div>' +
         '</div>' +
         '<button id="ct-done">好的</button>';
@@ -155,7 +159,7 @@
     }
     if (!msgs.length) {
       html += '<div class="empty">' + (isOwnerView
-        ? (item.postType === 'found' ? '还没有人留言。可以把「捡到了什么、在哪捡的」发到班级群，让失主来这里留言认领。' : '还没有人留言。可以把物品名称和大致地点发到班级群，让捡到的人来这里留言。')
+        ? (item.postType === 'found' ? '还没有人留言。可以把「捡到了什么、在哪捡的」发到班级群，让失主来这里留言。' : '还没有人留言。可以把物品名称和大致地点发到班级群，让捡到的人来这里留言。')
         : '你还没有给这条物品留过言。') + '</div>';
     } else {
       html += '<div class="thread">' + msgs.map(function (m) {
@@ -208,7 +212,7 @@
 
     var btnReturned = document.getElementById('ct-returned');
     if (btnReturned) btnReturned.addEventListener('click', async function () {
-      if (!window.confirm('确认匹配完成？确认后这条记录会从广场下架（仍保留在你的“我的发布”里）。')) return;
+      if (!window.confirm('确认匹配完成？确认后这条记录会从广场下架（记录仍在云端保留，阿寻按编号还能查到）。')) return;
       btnReturned.disabled = true; btnReturned.textContent = '处理中…';
       var res = await LF.api.updateItem(item.id, { status: 'returned', claimAt: new Date().toISOString() });
       if (!res.ok) {
@@ -224,7 +228,10 @@
     if (msgs.length) LF.contact.refreshBadges();
   };
 
-  /* ================= 入口 1：确认成功后追加「留言」按钮 ================= */
+  /* ================= 入口 1：给「确认核验通过」后追加留言按钮 =================
+   * 网页版已不再跑核验，这个方法保留给以后可能的对话式落地页复用；
+   * 目前没有调用方，写库前请确认弹窗 #modal-action 存在。
+   */
   LF.contact.attachFinderEntry = function (item) {
     var action = document.getElementById('modal-action');
     if (!action) return;
