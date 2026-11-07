@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>失物招领 · 智能匹配</title>
+<title>失物招领 · 广场</title>
 <!-- WorkBuddy 云服务 SDK（CDN 全局形式） -->
 <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
 <link rel="stylesheet" href="assets/styles.css">
@@ -13,85 +13,32 @@
 </head>
 <body>
 
-<h1>🧭 失物招领 · 智能匹配</h1>
+<h1>🧭 失物招领 · 广场</h1>
 <div class="sub">
-  多人共享云端数据 · AI 语义检索与认领核验
+  只读看板 · 数据由「寻物官 · 阿寻」统一登记
   <span class="sync-flag" id="cloud-status">⏳ 正在连接云端…</span>
   <span id="auth-area"></span>
 </div>
 
+<!-- 聊天框入口横幅：网页已降级为只读看板，登记/查找/核验都要回聊天框 -->
+<div class="agent-banner" id="agent-banner">
+  <div class="agent-banner-main">
+    <div class="agent-banner-title">💬 登记和认领都在聊天框里跟「寻物官 · 阿寻」完成</div>
+    <div class="agent-banner-desc">网页现在只做展示：不能发布、不能搜索、不能核验。有新东西找不到，回来问阿寻就行。</div>
+  </div>
+  <button type="button" class="ghost agent-banner-btn" id="agent-banner-btn">怎么找阿寻？</button>
+</div>
+
 <div class="tabs">
-  <div class="tab active" data-tab="publish">📤 发布失物</div>
-  <div class="tab" data-tab="search">🔍 找东西</div>
-  <div class="tab" data-tab="square">🏛️ 广场</div>
+  <div class="tab active" data-tab="square">🏛️ 广场</div>
   <div class="tab" data-tab="mailbox">📬 信箱</div>
 </div>
 
-<!-- 发布 -->
-<div class="panel active" id="panel-publish">
-  <div class="card">
-    <label>我是…</label>
-    <div class="post-type-row">
-      <button type="button" class="ghost post-type active" data-type="lost">😢 我丢了东西（失者发布）</button>
-      <button type="button" class="ghost post-type" data-type="found">🙋 我捡到了东西（拾者发布）</button>
-    </div>
-    <label>物品名称（公开 · 失者发布填写；拾者发布会自动用「颜色·类别」生成）</label>
-    <input type="text" id="pub-title" placeholder="例：黑色雨伞 / 蓝色书包">
-    <div class="field-row">
-      <div>
-        <label>类别（拾者发布必选）</label>
-        <select id="pub-category"></select>
-      </div>
-      <div>
-        <label>主色调（拾者发布必选）</label>
-        <select id="pub-color"></select>
-      </div>
-    </div>
-    <div class="hint">拾者发布只公开「类别 + 颜色」，不公开品牌型号与独特征；照片会重度模糊后才公开。</div>
-    <label>上传物品图片（失者发布：实拍图公开；拾者发布：重度模糊后公开，原图不上传）</label>
-    <input type="file" id="pub-image" accept="image/*">
-    <div id="pub-preview"></div>
-    <label>公开说明（会显示在广场，用你自己的话写）</label>
-    <textarea id="pub-notice" placeholder="例：有没有人在 11 月 4 日下午在图书馆三楼看到一个米白色水杯？"></textarea>
-    <div class="hint">这段会公开给所有人看。别把只有你自己知道的细节写进来（贴纸、划痕、里面装了什么）。</div>
-    <label id="pub-detail-label">物品细节描述（🔒 发布后隐藏，仅用于匹配确认）</label>
-    <textarea id="pub-detail" placeholder="例：伞柄内侧有卡通贴纸，伞骨有一根用胶带缠过，丢失地点在图书馆三楼靠窗座位。"></textarea>
-    <div class="hint" id="pub-detail-hint">细节不会公开展示，AI 会用这些细节生成只有真正主人／拾到者答得上来的核实问题。</div>
-    <label id="pub-location-label">大概丢失位置（🔒 匹配确认后显示）</label>
-    <input type="text" id="pub-location" placeholder="例：图书馆三楼东侧靠窗座位">
-    <button id="btn-publish">发布失物信息</button>
-    <button class="ghost" id="btn-refresh" style="margin-left:8px">🔄 同步云端</button>
-  </div>
-  <div class="card code-bind" id="bind-card-home">
-    <div class="code-bind-row">
-      <span style="flex:0 0 auto;font-size:13px">🔑 在智能体里登记过？输编号把帖子绑回来：</span>
-      <input type="text" id="bind-code-home" placeholder="例：LF-20 或 20" maxlength="16" style="flex:1">
-      <button class="ghost" id="btn-bind-code-home">绑定</button>
-    </div>
-    <div class="hint">智能体拿不到你的账号，它登记的帖子一开始是「无主」的——绑定后才算你发的，别人留言也会进你信箱。</div>
-  </div>
-  <div id="my-posts"></div>
-</div>
-
-<!-- 找东西 -->
-<div class="panel" id="panel-search">
-  <div class="card">
-    <label>方式一：文字描述（AI 语义扩展检索）</label>
-    <input type="text" id="search-text" placeholder="例：一把黑色的伞，柄上有贴纸">
-    <button class="ghost" id="btn-search-text">🔤 语义检索</button>
-
-    <label style="margin-top:16px">方式二：上传图片检索（AI 看图理解 + 颜色特征）</label>
-    <input type="file" id="search-image" accept="image/*">
-    <button class="ghost" id="btn-search-image">🖼️ 图像检索</button>
-  </div>
-  <div id="search-results"></div>
-</div>
-
 <!-- 广场：所有人可见的待认领失物 -->
-<div class="panel" id="panel-square">
+<div class="panel active" id="panel-square">
   <div class="card">
-    <label>广场 · 所有未被认领的失物（只展示公开信息，隐藏细节与位置不展示）</label>
-    <input type="text" id="square-search" placeholder="按名称或特征筛，例：耳机 / 黑色 / 贴纸">
+    <label>广场 · 所有待认领的失物（只展示公开信息，隐藏细节与具体位置不展示）</label>
+    <input type="text" id="square-search" placeholder="按名称或特征筛，例：耳机 / 黑色">
     <button class="ghost" id="btn-square-refresh" style="margin-top:8px">🔄 刷新广场</button>
     <div class="hint" id="square-count"></div>
 
@@ -101,7 +48,7 @@
         <input type="text" id="bind-code" placeholder="例：LF-18 或 18" maxlength="16">
         <button class="ghost" id="btn-bind-code">绑定</button>
       </div>
-      <div class="hint">智能体登记完会给你编号。绑定后补照片、收留言、确认认领都算你自己那条。</div>
+      <div class="hint">阿寻拿不到你的账号，它登记的是「无主」记录。绑定后补照片、收留言、确认找回都算你自己那条。</div>
     </div>
   </div>
   <div id="square-list"></div>
@@ -115,12 +62,12 @@
   </div>
 </div>
 
-<!-- 匹配确认弹窗 -->
+<!-- 通用弹窗：只留给「✉️ 联系发布者」的留言线程用，认领核验已移出网页 -->
 <div class="modal-mask" id="modal">
   <div class="modal">
     <button class="modal-close" id="btn-modal-close" title="关闭">✕</button>
-    <h3>🤖 AI 匹配确认</h3>
-    <div class="hint">AI 会先根据物品细节向你提问，回答正确后才显示具体位置（最多 3 次机会）。</div>
+    <h3 id="modal-title">💬 留言</h3>
+    <div class="hint" id="modal-sub"></div>
     <div class="chat" id="chat"></div>
     <div id="modal-action"></div>
   </div>
@@ -128,14 +75,12 @@
 
 <div id="toast-wrap"></div>
 
-<!-- 模块加载顺序：config → api → ai → ui → search/match/stats → app -->
+<!-- 模块加载顺序：config → api → ai → ui → app → contact → square → auth → mailbox → notify -->
+<!-- search.js / match.js / stats.js 已随检索与统计面板一起下线，不再引入 -->
 <script src="assets/config.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/ai.js"></script>
 <script src="assets/ui.js"></script>
-<script src="assets/search.js"></script>
-<script src="assets/match.js"></script>
-<script src="assets/stats.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/contact.js"></script>
 <script src="assets/square.js"></script>

@@ -114,54 +114,10 @@ img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
 @keyframes toastOut { to   { opacity: 0; transform: translateY(-10px); } }
 
 /* ================================================================
-   B 线新增样式（双入口 / 拖拽上传 / 分步气泡录入 / 定位 / 移动端）
+   B 线样式（拖拽上传 / 定位 / 移动端）
+   2026-11-07：双入口遮罩与分步录入随发布面板一起下线，相关样式已移除
    ================================================================ */
 
-/* ---- B1 · 双入口选择页（z-index 40，低于弹窗 50/60） ---- */
-.entry-mask {
-  position: fixed; inset: 0; z-index: 40;
-  background: rgba(245, 246, 250, .98);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 18px; padding: 24px;
-  transition: opacity .3s ease;
-}
-.entry-mask.hide { opacity: 0; pointer-events: none; }
-.entry-title { font-size: 22px; font-weight: 700; color: #222; }
-.entry-sub { color: #888; font-size: 13px; }
-
-/* 双入口 · 竖排编号选项（旧版视觉：1 我丢了东西😭 / 2 我捡到了东西🙋） */
-.entry-box {
-  width: 100%; max-width: 400px;
-  display: flex; flex-direction: column; align-items: stretch;
-  gap: 10px; text-align: center;
-}
-.entry-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
-.entry-option {
-  display: grid; grid-template-columns: 28px 1fr; align-items: center;
-  column-gap: 12px; row-gap: 2px; text-align: left;
-  padding: 16px 18px; margin-top: 0;
-  background: #fff; color: #222; font-weight: 400;
-  border: 2px solid transparent; border-radius: 16px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, .07);
-  cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s;
-}
-.entry-option:hover {
-  background: #fff; transform: translateY(-2px);
-  border-color: #2d6cdf; box-shadow: 0 8px 24px rgba(45, 108, 223, .16);
-}
-.entry-no {
-  grid-row: span 2; width: 26px; height: 26px; border-radius: 50%;
-  background: #eef3fd; color: #2d6cdf; font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.entry-text { font-size: 17px; font-weight: 700; color: #222; }
-.entry-desc { font-size: 12.5px; color: #9aa0aa; }
-.entry-skip {
-  background: none; color: #aaa; font-size: 13px; font-weight: 400;
-  padding: 6px 12px; margin-top: 4px;
-}
-.entry-skip:hover { background: #ececec; color: #666; }
 
 /* ---- B2 · 拖拽上传区 ---- */
 .drop-zone {
@@ -231,8 +187,8 @@ img.preview { max-width: 100%; border-radius: 10px; margin-top: 8px; }
   .thumb { width: 56px; height: 56px; }
   .item-title .badge { margin: 4px 6px 0 0; }
   .item-ops button { min-height: 40px; }
-  .wiz-chat { max-height: 46vh; }
-  .entry-card { width: 100%; max-width: 260px; padding: 20px; }
+  .agent-banner { padding: 10px 12px; }
+  .agent-banner-btn { width: 100%; }
   .modal { padding: 16px; }
   .modal-mask { padding: 10px; }
 }
