@@ -176,6 +176,12 @@
   /**
    * 局部更新：认领状态流转、归属、补照片等
    * patch 支持 { status, claimAt, aiDesc, aiTags, ownerId, image, colorFeature }
+   *
+   * ⚠️ 为什么 update 后面还要 `.select('id')`：
+   *   PostgREST 的 UPDATE 在「RLS 把行过滤掉了」时返回 **204 + 空结果，没有 error**。
+   *   只看 error 会把「一行都没改」当成成功——2026-11-07 验收时就真出现过：库里
+   *   缺 UPDATE 策略，网页提示「已绑到你账号」，实际 owner_id 还是空的。
+   *   所以必须把返回行数当成功判据：0 行 = 没写进去 = 失败。
    */
   LF.api.updateItem = async function (id, patch) {
     var row = {};
@@ -188,8 +194,15 @@
     if ('colorFeature' in patch) row.color_feature = patch.colorFeature;
     if ('pickupLocation' in patch) row.pickup_location = patch.pickupLocation;
     try {
-      var res = await getCloud().database.from(LF.config.table).update(row).eq('id', id);
+      var res = await getCloud().database.from(LF.config.table).update(row).eq('id', id).select('id');
       if (res.error) throw res.error;
+      if (!res.data || !res.data.length) {
+        return {
+          ok: false,
+          code: 'not_written',
+          error: '云端没有写入这条记录（可能没有权限，或记录已被删除），刷新后再试'
+        };
+      }
       var items = loadCache().map(function (x) {
         return x.id === id ? Object.assign({}, x, patch) : x;
       });
@@ -238,8 +251,16 @@
         if (row.owner_id === me) return { ok: true, already: true, item: rowToItem(row) };
         return { ok: false, code: 'taken', error: '这条记录已经绑到别的账号了' };
       }
-      var upd = await db.from(LF.config.table).update({ owner_id: me }).eq('id', id);
+      var upd = await db.from(LF.config.table).update({ owner_id: me }).eq('id', id).select('id');
       if (upd.error) throw upd.error;
+      // 返回 0 行 = 没写进去（RLS 过滤 / 无 UPDATE 权限）。别把「没改动」报成绑定成功。
+      if (!upd.data || !upd.data.length) {
+        return {
+          ok: false,
+          code: 'not_written',
+          error: '云端没有写入归属（可能没有权限），刷新后再试一次'
+        };
+      }
       var item = rowToItem(Object.assign({}, row, { owner_id: me }));
       saveCache(loadCache().map(function (x) {
         return x.id === id ? Object.assign({}, x, { ownerId: me }) : x;
@@ -469,8 +490,16 @@
       var ids = (found.data || []).map(function (r) { return r.id; });
 
       if (ids.length) {
-        var upd = await db.from(LF.config.table).update({ owner_id: uid }).eq('owner_id', localId);
+        var upd = await db.from(LF.config.table).update({ owner_id: uid }).eq('owner_id', localId).select('id');
         if (upd.error) throw upd.error;
+        var moved = (upd.data || []).length;
+        // 一条都没改：说明被 RLS / 权限挡住了。这时候既不能报「已迁移 N 条」，
+        // 也不能删掉本机设备 ID（删了就再也找不回这批记录）。
+        if (!moved) {
+          console.error('[api] adoptLocalItems: 0 条被更新，保留本机设备 ID 以便重试');
+          return 0;
+        }
+        ids = upd.data.map(function (r) { return r.id; });
       }
       // 匿名时发出的留言也一并认领，否则信箱「发件」里看不到
       await db.from(LF.config.messageTable).update({ sender_id: uid }).eq('sender_id', localId);
