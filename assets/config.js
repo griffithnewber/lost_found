@@ -20,10 +20,23 @@ LF.config = {
     cheap: 'hy4free'
   },
 
+  // 2026-11-07 改版：认领核验已搬到聊天框（寻物官·阿寻）完成，
+  // maxAttempts（3 次机会）由人设文件里的规则接管，网页不再判答，这个值仅作历史保留。
   ai: {
     timeoutMs: 25000,   // 单次调用超时
     limitPerMinute: 5,  // 同一浏览器 60 秒内最多调用次数（防刷额度）
-    maxAttempts: 3      // 认领确认最多回答次数
+    maxAttempts: 3      // 认领确认最多回答次数（已移至人设，网页不再使用）
+  },
+
+  /* 网页降级为只读看板后，所有登记 / 查找 / 核验都要用户回到聊天框找阿寻。
+     这里放统一的入口文案，横幅、认领按钮、提示都从这里取，避免各处写死。 */
+  agent: {
+    name: '寻物官 · 阿寻',
+    where: 'WorkBuddy 聊天框',
+    bannerTitle: '登记和认领都在聊天框里跟「寻物官 · 阿寻」完成',
+    bannerDesc: '网页现在只做展示，不能发布、不能搜索、不能核验。',
+    claimText: '🔍 去聊天框核验',
+    bindHint: '绑定后补照片、收留言、确认找回都算你自己那条'
   },
 
   // 数据表名
@@ -36,7 +49,9 @@ LF.config = {
    *      AI 只在后台做检索与核验，绝不在前台生成描述。
    * ============================================================ */
 
-  // 拾者发布必选：类别决定了广场卡片的 emoji 与泛化标题
+  /* 类别枚举 —— 必须与人设文件（agents/lost-found-assistant.md）里的 category 完全一致，
+     否则阿寻写进来的记录在广场上会显示成「📦 其他」+ 无颜色。
+     2026-11-07 对齐：人设独有 wallet（钱包）、glasses（眼镜），网页原缺，已补。 */
   categories: [
     { key: 'headphones', label: '耳机', emoji: '🎧' },
     { key: 'cup',        label: '水杯', emoji: '🥤' },
@@ -45,21 +60,27 @@ LF.config = {
     { key: 'keys',       label: '钥匙', emoji: '🔑' },
     { key: 'bag',        label: '书包/背包', emoji: '🎒' },
     { key: 'phone',      label: '手机/电子设备', emoji: '📱' },
+    { key: 'wallet',     label: '钱包', emoji: '👛' },
+    { key: 'glasses',    label: '眼镜', emoji: '👓' },
     { key: 'book',       label: '书/笔记本', emoji: '📚' },
     { key: 'clothes',    label: '衣物', emoji: '🧥' },
     { key: 'other',      label: '其他', emoji: '📦' }
   ],
 
-  // 拾者发布必选：主色调（只到"大概颜色"，不写品牌型号）
+  /* 主色调枚举 —— 同样必须与人设里的 color_tone 完全一致。
+     2026-11-07 对齐：人设独有 brown（棕）、purple（紫）、clear（透明），网页原缺，已补。 */
   colorTones: [
     { key: 'black',  label: '黑色', hex: '#2f3542' },
     { key: 'white',  label: '白色', hex: '#e8eaed' },
     { key: 'gray',   label: '灰色', hex: '#9aa3ad' },
+    { key: 'brown',  label: '棕色', hex: '#8d6e63' },
     { key: 'blue',   label: '蓝色', hex: '#4a9eff' },
     { key: 'red',    label: '红色', hex: '#ff6b6b' },
     { key: 'pink',   label: '粉色', hex: '#ff9ff3' },
+    { key: 'purple', label: '紫色', hex: '#a55eea' },
     { key: 'green',  label: '绿色', hex: '#51cf66' },
     { key: 'yellow', label: '黄色', hex: '#ffd43b' },
+    { key: 'clear',  label: '透明', hex: '#dfe6ec' },
     { key: 'other',  label: '其他颜色', hex: '#b2bec3' }
   ]
 };
