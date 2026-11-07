@@ -51,6 +51,19 @@
       <div class="hint">阿寻拿不到你的账号，它登记的是「无主」记录。绑定后补照片、收留言、确认找回都算你自己那条。</div>
     </div>
   </div>
+
+  <!-- 文字检索：受开关控制（?textsearch=1 或 LF.config.features.textSearch）。
+       默认 hidden —— 开关关着时页面表现与「只读看板」完全一致。 -->
+  <div class="card" id="text-search-card" hidden>
+    <label>🔎 文字匹配（结果来自数据库共享函数）</label>
+    <div class="code-bind-row">
+      <input type="text" id="text-search-input" placeholder="例：黑色耳机 / 证件卡 / 雨伞" maxlength="40">
+      <button class="ghost" id="btn-text-search">检索</button>
+    </div>
+    <div class="hint" id="text-search-hint">顺序、分数、分级都由 lf_search_text_v1 返回，网页不重算；登记与核验仍在聊天框。</div>
+    <div id="text-search-list"></div>
+  </div>
+
   <div id="square-list"></div>
 </div>
 
@@ -75,12 +88,14 @@
 
 <div id="toast-wrap"></div>
 
-<!-- 模块加载顺序：config → api → ai → ui → app → contact → square → auth → mailbox → notify -->
+<!-- 模块加载顺序：config → api → ai → ui → textsearch → app → contact → square → auth → mailbox → notify -->
+<!-- textsearch.js 在 app.js 之前：横幅文案要读 LF.textSearch.enabled() -->
 <!-- search.js / match.js / stats.js 已随检索与统计面板一起下线，不再引入 -->
 <script src="assets/config.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/ai.js"></script>
 <script src="assets/ui.js"></script>
+<script src="assets/textsearch.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/contact.js"></script>
 <script src="assets/square.js"></script>

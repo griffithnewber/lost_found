@@ -1,0 +1,13 @@
+{
+  "name": "lost-found-sql-tests",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Offline SQL<->JS parity tests for lf_search_text_v1",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}

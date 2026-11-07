@@ -21,6 +21,10 @@ h1 { font-size: 22px; margin-bottom: 4px; }
 .panel { display: none; }
 .panel.active { display: block; }
 
+/* 功能开关靠 hidden 属性显隐（如 #text-search-card）。
+   显式写一条，避免将来给 .card / .panel 加 display 时把 UA 的 [hidden] 顶掉。 */
+[hidden] { display: none !important; }
+
 .card {
   background: #fff; border-radius: 14px; padding: 18px;
   box-shadow: 0 2px 12px rgba(0,0,0,.06); margin-bottom: 16px;
