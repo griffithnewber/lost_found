@@ -8,19 +8,13 @@
  *   LF.ui.compressImage(dataURL)           压缩到最长边 480px / JPEG 0.75
  *   LF.ui.extractColorFeature(dataURL)     64 维颜色特征（8x8 降采样）
  *   LF.ui.colorDistance(a, b)              颜色距离
- *   LF.ui.renderMyPosts(items, opts)       发布列表
- *   LF.ui.renderResults(rows, meta)        检索结果
- *   LF.ui.openModal() / closeModal()       确认弹窗
+ *   LF.ui.openModal() / closeModal()       弹窗（留言线程）
  *   LF.ui.chatClear() / chatMsg(role, text)
- *   LF.ui.setAction(html) / showAnswerInput(remain, onSubmit)
+ *   LF.ui.setAction(html)
  *   LF.ui.setStatus(text, ok)              右上角连接状态
  *
- * TODO（B 的活）：
- *   1. 粘贴上传：绑定 paste 事件（Ctrl/Cmd+V 直接读剪贴板图片）
- *   2. 拖拽上传：dragover/dragleave/drop + 高亮样式
- *   3. 双入口首页：打开先选「我丢了东西 / 我来找东西」，再进对应面板
- *   4. 对话式分步录入：气泡式追问，可回退上一步、可跳过
- *   5. 位置智能填写：navigator.geolocation → 反解文字 → 可手改（合规见 docs/ROADMAP.md）
+ * 2026-11-07 改版：发布列表、检索结果、认领判答（出题/判答/剩余次数）已随面板下线，
+ * 对应渲染函数一并移除；留言线程要用的 toast / 转义 / 图片 / 弹窗能力都还在。
  */
 (function () {
   'use strict';
@@ -200,85 +194,7 @@
     return it.title || '未命名物品';
   };
 
-  /* ================= 列表渲染 ================= */
-  LF.ui.renderMyPosts = function (items, opts) {
-    opts = opts || {};
-    var box = document.getElementById('my-posts');
-    if (!box) return;
-    if (!items.length) {
-      box.innerHTML = '<div class="empty">你还没有发布记录<br>' +
-        '<span class="hint">想找东西？去「🏛️ 广场」看看别人捡到的</span></div>';
-      return;
-    }
-    box.innerHTML = items.map(function (it) {
-      var delBtn = opts.canDelete
-        ? '<button class="btn-del" data-del="' + it.id + '">删除</button>'
-        : '';
-      var msgBtn = '<button class="ghost btn-msg" data-thread="' + it.id + '">💬 留言<span class="badge hidden" data-msgcount="' + it.id + '"></span></button>';
-      var statusText = { open: '待认领', claimed: '有人认领', returned: '已找回' }[it.status || 'open'] || it.status;
-      // 「我的发布」页的身份标签要体现"这是我的"：拾者/失者只作后缀保留
-      var typeText = it.postType === 'found' ? '我的发布 · 拾者' : '我的发布 · 失者';
-      var returned = it.status === 'returned';
-      // 已找回 = 完结归档：隐藏细节徽章失去意义，换成找回日期
-      var badges = ' <span class="badge badge-mine">' + typeText + '</span>';
-      if (returned) {
-        var d = it.claimAt ? new Date(it.claimAt) : null;
-        var when = d && !isNaN(d.getTime())
-          ? d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
-          : '';
-        badges += ' <span class="badge">✅ ' + when + '已找回</span>';
-      } else {
-        badges += ' <span class="badge">已隐藏细节</span>';
-        badges += ' <span class="badge score">' + LF.ui.esc(statusText) + '</span>';
-      }
-      return '' +
-        '<div class="item' + (returned ? ' archived' : '') + '">' +
-        LF.ui.thumbHTML(it) +
-        '<div class="item-body">' +
-        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) + badges + '</div>' +
-        '<div class="item-meta">' + LF.ui.esc(it.time || '') + '</div>' +
-        LF.ui.noticeHTML(it) +
-        (returned
-          ? '<div class="item-desc">🎉 物品已顺利找回，已从广场下架</div>'
-          : '<div class="item-desc">🔒 细节与位置仅匹配确认后展示</div>') +
-        // 智能体只能存文字，它登记的记录没有图——不跳广场也能在这里直接补
-        '<div class="item-ops">' + msgBtn +
-        (!it.image && !returned
-          ? '<button class="ghost btn-photo" data-addphoto="' + it.id + '">📷 补张照片</button>'
-          : '') +
-        delBtn + '</div>' +
-        '</div></div>';
-    }).join('');
-  };
-
-  LF.ui.renderResults = function (rows, meta) {
-    meta = meta || {};
-    var box = document.getElementById('search-results');
-    if (!box) return;
-    if (!rows.length) {
-      box.innerHTML = '<div class="empty">没有找到匹配的失物，换个描述试试？</div>';
-      return;
-    }
-    box.innerHTML = rows.map(function (r) {
-      var it = r.item || r.it;
-      var label = r.label || '';
-      var labelCls = r.level === 'high' ? '' : ' score';
-      return '' +
-        '<div class="item">' +
-        LF.ui.thumbHTML(it) +
-        '<div class="item-body">' +
-        '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) +
-        ' <span class="badge">' + (it.postType === 'found' ? '拾者发布' : '失者发布') + '</span>' +
-        ' <span class="badge' + labelCls + '">' + LF.ui.esc(label) + '</span>' +
-        '</div>' +
-        '<div class="item-meta">' + LF.ui.esc(meta.methodText || '') + ' · ' + LF.ui.esc(it.time || '') + '</div>' +
-        LF.ui.noticeHTML(it) +
-        '<div class="item-desc">🔒 位置与细节需确认后显示</div>' +
-        '<button class="ghost" style="margin-top:8px" data-claim="' + it.id + '">认领 / 确认匹配</button>' +
-        '</div></div>';
-    }).join('');
-  };
-
+  /* ================= 弹窗（只留给留言线程用） ================= */
   /* ================= 确认弹窗 ================= */
   LF.ui.openModal = function () {
     document.getElementById('modal').classList.add('show');
@@ -307,64 +223,6 @@
   LF.ui.setAction = function (html) {
     var box = document.getElementById('modal-action');
     if (box) box.innerHTML = html || '';
-  };
-
-  /**
-   * 答案输入区：文本框 + 可选照片 + 剩余次数
-   * onSubmit(answerText, answerImageDataURL)
-   */
-  LF.ui.showAnswerInput = function (remain, onSubmit) {
-    var box = document.getElementById('modal-action');
-    if (!box) return;
-    box.innerHTML = '' +
-      '<input type="text" id="answer-input" placeholder="输入你的回答…（剩 ' + remain + ' 次机会）" style="margin-top:10px">' +
-      '<div class="answer-tools">' +
-      '<label class="file-inline">📷 也可以传张照片<input type="file" id="answer-image" accept="image/*" hidden></label>' +
-      '<span id="answer-image-name" class="hint"></span>' +
-      '</div>' +
-      '<button id="answer-submit">提交回答</button>';
-
-    var input = document.getElementById('answer-input');
-    var fileInput = document.getElementById('answer-image');
-    var nameEl = document.getElementById('answer-image-name');
-    var submitBtn = document.getElementById('answer-submit');
-    var answerImage = null;
-
-    fileInput.addEventListener('change', async function () {
-      var f = fileInput.files && fileInput.files[0];
-      if (!f) return;
-      var raw = await LF.ui.fileToDataURL(f);
-      answerImage = await LF.ui.compressImage(raw);
-      nameEl.textContent = '已选择照片';
-    });
-
-    input.focus();
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') submitBtn.click();
-    });
-    submitBtn.addEventListener('click', function () {
-      var text = input.value.trim();
-      if (!text && !answerImage) { LF.ui.toast('请先输入回答', 'error'); return; }
-      submitBtn.disabled = true;
-      onSubmit(text, answerImage);
-    });
-  };
-
-  /** 弹窗内的忙碌 / 结果区 */
-  LF.ui.setBusy = function (text) {
-    LF.ui.setAction('<div class="hint" style="margin-top:10px">' + LF.ui.esc(text) + '</div>');
-  };
-
-  LF.ui.showMatchSuccess = function (item) {
-    LF.ui.setAction('' +
-      '<div class="match-box">' +
-      '<div>📍 <b>存放/发现位置：</b>' + LF.ui.esc(item.location || '发布者未填写') + '</div>' +
-      '<div style="margin-top:6px">📞 已记录认领，请留意发布者联系。</div>' +
-      '<div style="margin-top:6px;color:#888">物品名称：' + LF.ui.esc(item.title) + '</div>' +
-      '</div>' +
-      '<button id="match-done">完成</button>');
-    var btn = document.getElementById('match-done');
-    if (btn) btn.addEventListener('click', LF.ui.closeModal);
   };
 
   /* ================= 拖拽上传区（B 新增） ================= */

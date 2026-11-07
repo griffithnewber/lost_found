@@ -50,3 +50,53 @@
   font-size: 12px; color: #7A5B00;
 }
 .bind-bar button { font-size: 12px; padding: 5px 10px; margin: 0; }
+
+/* ==================================================================
+   2026-11-07 改版：网页降级为只读看板
+   ================================================================== */
+
+/* ---- 聊天框入口横幅：首屏顶部固定一条，告诉用户登记要去哪 ---- */
+.agent-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; margin: 0 0 14px;
+  background: linear-gradient(135deg, #EEF4FF, #F6F9FF);
+  border: 1px solid #D5E3F5; border-radius: 12px;
+}
+.agent-banner-main { flex: 1 1 260px; min-width: 0; }
+.agent-banner-title { font-size: 13.5px; font-weight: 600; color: #23456f; line-height: 1.5; }
+.agent-banner-desc { font-size: 12px; color: #5b7699; line-height: 1.5; margin-top: 2px; }
+.agent-banner-btn { flex: 0 0 auto; margin: 0; font-size: 12px; padding: 7px 12px; }
+
+/* ---- 页签只剩两个：收窄间距、居中，避免看着像少了一块 ---- */
+.tabs-compact { justify-content: center; }
+.tabs-compact .tab { flex: 1 1 0; max-width: 180px; text-align: center; }
+
+/* ---- 寄存点标签（pickup_location 有值才出现） ---- */
+.pickup-tag {
+  display: inline-block; margin-top: 6px; padding: 3px 9px;
+  background: #EAF7EE; color: #1e7a3c; border: 1px solid #C6E9D2;
+  border-radius: 999px; font-size: 12px; line-height: 1.6;
+}
+
+/* ---- 首屏骨架屏：替代「正在加载广场…」一行字 ---- */
+.skeleton { display: flex; flex-direction: column; gap: 12px; }
+.sk-item {
+  display: flex; gap: 12px; padding: 12px;
+  background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.sk-thumb {
+  width: 64px; height: 64px; border-radius: 10px; flex: 0 0 auto;
+  background: linear-gradient(90deg, #eef1f5 25%, #f7f9fb 37%, #eef1f5 63%);
+  background-size: 400% 100%; animation: sk-shimmer 1.4s ease infinite;
+}
+.sk-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.sk-line {
+  height: 10px; border-radius: 6px;
+  background: linear-gradient(90deg, #eef1f5 25%, #f7f9fb 37%, #eef1f5 63%);
+  background-size: 400% 100%; animation: sk-shimmer 1.4s ease infinite;
+}
+.sk-line.w60 { width: 60%; } .sk-line.w30 { width: 30%; } .sk-line.w90 { width: 90%; }
+@keyframes sk-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sk-thumb, .sk-line { animation: none; }
+}

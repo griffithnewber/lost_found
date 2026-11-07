@@ -30,6 +30,12 @@
     return ' <span class="badge badge-type">' + type + '</span>' + state;
   }
 
+  /** 寄存点标签：只有登记时填了 pickup_location 才出现（阿寻登记时会写） */
+  function pickupHTML(it) {
+    if (!it.pickupLocation) return '';
+    return '<div class="pickup-tag">📍 可到「' + LF.ui.esc(it.pickupLocation) + '」认领</div>';
+  }
+
   function match(it) {
     if (!keyword) return true;
     var cat = LF.ui.categoryMeta(it.category);
@@ -71,9 +77,12 @@
         '<div class="item-meta">' + LF.ui.esc(it.time || '') +
         (isFound && cat.label ? ' · ' + cat.emoji + ' ' + LF.ui.esc(cat.label) : '') + '</div>' +
         LF.ui.noticeHTML(it) +
+        pickupHTML(it) +
         '<div class="item-desc muted">' + hint + '</div>' +
         '<div class="square-ops">' +
-        '<button class="ghost" data-claim="' + it.id + '">' + (isFound ? '我要认领' : '这是我丢的') + '</button>' +
+        // 认领核验已搬到聊天框：这里只给入口提示，不再弹网页 AI 问答
+        '<button class="ghost" data-claim="' + it.id + '">' +
+        LF.ui.esc((LF.config.agent && LF.config.agent.claimText) || '🔍 去聊天框核验') + '</button>' +
         '<button class="ghost" data-contact="' + it.id + '">' + (isFound ? '✉️ 联系拾者' : '✉️ 联系失主') + '</button>' +
         (it.image ? '' : '<button class="ghost" data-addphoto="' + it.id + '">📷 补张照片</button>') +
         '</div>' +
@@ -157,7 +166,7 @@
         LF.ui.toast('照片已补上', 'success');
       }
 
-      document.dispatchEvent(new CustomEvent('lf:changed'));   // 广场 + 「我的发布」一起刷新
+      document.dispatchEvent(new CustomEvent('lf:changed'));   // 广场 + 信箱一起刷新
       waitAndFocus(item.id);
     } catch (e) {
       console.error('[square] attachPhoto failed', e);
@@ -192,10 +201,15 @@
   }
 
   /** 渲染是异步的，卡片可能还没出来，轮询等它（最多约 4 秒） */
-  function waitAndFocus(id, tries) {
+  function waitAndFocus(id, tries, settled) {
     tries = tries || 0;
     if (el('item-' + id)) { jumpTo(id); return; }
-    if (tries < 26) setTimeout(function () { waitAndFocus(id, tries + 1); }, 150);
+    if (tries < 26) {
+      setTimeout(function () { waitAndFocus(id, tries + 1, settled); }, 150);
+      return;
+    }
+    // 等够了还是没有：确认下是「记录已下架」还是「编号压根不存在」
+    if (settled) explainMissing(id);
   }
 
   /** 无归属的记录在卡片里浮一条提示，一键绑给当前登录账号 */
@@ -232,7 +246,7 @@
       return false;
     }
     LF.ui.toast(res.already ? '这条本来就在你名下' : '✅ 已绑到你账号，之后有人留言会进你的信箱', 'success', 3200);
-    ['bind-code', 'bind-code-home'].forEach(function (k) {
+    ['bind-code'].forEach(function (k) {
       var inp = el(k);
       if (inp) inp.value = '';
     });
@@ -247,17 +261,89 @@
     var id = Number(m[1]);
     var tab = document.querySelector('.tab[data-tab="square"]');
     if (tab) tab.click();
-    waitAndFocus(id);
+    waitAndFocus(id, 0, true);
   }
 
-  LF.square.render = async function () {
+  /**
+   * 深链容错：阿寻给的 #item-<id> 可能指向一条已经 returned 的记录。
+   * listPublicItems() 会把 returned 过滤掉，卡片根本不存在 —— 老逻辑会白跳，
+   * 用户只看到广场顶部，以为链接坏了。这里区分「还没加载完」和「确实不在」：
+   * 加载完仍找不到，就查明原因并给一条明确提示。
+   */
+  async function explainMissing(id) {
+    var item = null;
+    try { item = await LF.api.findItemById(id); } catch (e) { /* 忽略，走通用提示 */ }
+    if (!item) {
+      LF.ui.toast('没有找到 LF-' + id + ' 这条记录，编号可能不对', 'error', 4500);
+      return;
+    }
+    var label = 'LF-' + id + (item.title ? '「' + item.title + '」' : '');
+    if (item.status === 'returned') {
+      LF.ui.toast(label + ' 已经认领完成、从广场下架了', 'info', 5000);
+    } else if (item.status === 'claimed') {
+      LF.ui.toast(label + ' 已有人认领，广场上还留着记录，往下翻翻看', 'info', 5000);
+    } else {
+      LF.ui.toast('广场里暂时没有 ' + label + '，点「🔄 刷新广场」再试一次', 'info', 4500);
+    }
+  }
+
+  /* 首屏骨架屏：比「正在加载广场…」一行字更像真页面，减少白屏感 */
+  function skeletonHTML() {
+    var one = '<div class="sk-item">' +
+      '<div class="sk-thumb"></div>' +
+      '<div class="sk-body"><div class="sk-line w60"></div><div class="sk-line w30"></div>' +
+      '<div class="sk-line w90"></div></div></div>';
+    return '<div class="skeleton">' + one + one + one + '</div>';
+  }
+
+  LF.square.render = async function (opts) {
+    opts = opts || {};
     var box = el('square-list');
-    if (box) box.innerHTML = '<div class="empty">正在加载广场…</div>';
+    if (box && !opts.silent) box.innerHTML = skeletonHTML();
+
+    // 轮询刷新时的滚动位置：不能把用户正在看的卡片刷回顶部
+    var scrollY = opts.silent ? window.scrollY : 0;
+
     var items = await LF.api.listPublicItems();
     // 只取最新 60 条，避免图片太多拖慢首屏
     all = items.slice(0, 60);
+
+    if (opts.silent && sameData(items.slice(0, 60))) {
+      return;   // 数据没变就不重绘，省一次 DOM 抖动
+    }
     draw();
+    if (opts.silent) window.scrollTo(0, scrollY);
   };
+
+  /** 判断拉回来的列表和当前渲染的是否一致（只比 id + status，够用且便宜） */
+  var lastSig = '';
+  function sameData(rows) {
+    var sig = rows.map(function (x) { return x.id + ':' + x.status + ':' + (x.image ? 1 : 0); }).join('|');
+    if (sig === lastSig) return true;
+    lastSig = sig;
+    return false;
+  }
+
+  /* ================================================================
+   * 自动刷新
+   *
+   * 阿寻在另一个进程里写库，网页这边感知不到。原来只有「切页签 / 点刷新」
+   * 两个时机，用户聊天框登记完切过来看不到，会以为登记失败、重复登记。
+   * 这里每 20 秒静默拉一次（页面隐藏时跳过），跟 notify.js 的轮询节奏一致。
+   * ================================================================ */
+  var POLL_MS = 20000;
+  var pollTimer = null;
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function () {
+      if (document.hidden) return;                              // 后台标签页不拉，省流量
+      var panel = el('panel-square');
+      if (!panel || !panel.classList.contains('active')) return; // 只在广场页签可见时跑
+      LF.square.render({ silent: true });
+    }, POLL_MS);
+  }
+
 
   function bind() {
     var input = el('square-search');
@@ -291,8 +377,8 @@
       LF.square.addPhotoById(Number(btn.getAttribute('data-addphoto')));
     });
 
-    // 编号绑定：智能体给的 LF-xx 在这里换回归属（广场顶部 + 首页各一个入口）
-    [['bind-code', 'btn-bind-code'], ['bind-code-home', 'btn-bind-code-home']].forEach(function (pair) {
+    // 编号绑定：阿寻给的 LF-xx 在这里换回归属（发布面板已下线，只剩广场顶部这一个入口）
+    [['bind-code', 'btn-bind-code']].forEach(function (pair) {
       var inp = el(pair[0]);
       var btn = el(pair[1]);
       if (btn) btn.addEventListener('click', function () {
@@ -309,11 +395,33 @@
       if (!b) return;
       LF.square.bindByCode(b.getAttribute('data-bind-owner'));
     });
+
+    /* 「去聊天框核验」：认领核验已搬到人设文件，网页不再出题判答。
+       点一下说明去哪里核验，并把编号提示出来，方便用户直接对阿寻说。 */
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-claim]');
+      if (!btn) return;
+      var id = Number(btn.getAttribute('data-claim'));
+      var item = all.filter(function (x) { return x.id === id; })[0];
+      var code = 'LF-' + id;
+      LF.ui.toast('认领核验在聊天框里做：跟「寻物官 · 阿寻」说「我要认领 ' + code + '」', 'info', 6000);
+      if (item) waitAndFocus(id, 0, false);
+    });
+
+    // 切回标签页时补拉一次（用户可能在聊天框登记完就切回来）
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) return;
+      var panel = el('panel-square');
+      if (panel && panel.classList.contains('active')) LF.square.render({ silent: true });
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     bind();
-    LF.square.render();   // 首页就预热一次，切过去不空
-    setTimeout(focusFromHash, 600);   // 等首屏渲染完再处理 #item-<id> 直达
+    startPolling();
+    // 首页就预热一次，切过去不空
+    LF.square.render().then(function () {
+      setTimeout(focusFromHash, 200);   // 等首屏渲染完再处理 #item-<id> 直达
+    });
   });
 })();

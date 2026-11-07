@@ -10,8 +10,9 @@
  *
  * Item 结构：
  *   { id, title, detail, location, image, colorFeature,
- *     aiDesc, aiTags, status, ownerId, claimAt, time, createdAt }
- *   detail / location 为隐藏字段，仅确认流程使用。
+ *     aiDesc, aiTags, status, postType, ownerId, pickupLocation, claimAt, time, createdAt }
+ *   detail / location 为隐藏字段，仅核验流程使用；
+ *   pickupLocation（寄存点）是公开字段，广场卡片会显示「可到某处认领」。
  */
 (function () {
   'use strict';
@@ -57,6 +58,7 @@
       status: r.status || 'open',
       postType: r.post_type || 'lost',
       ownerId: r.owner_id || '',
+      pickupLocation: r.pickup_location || '',
       claimAt: r.claim_at || null,
       time: r.pub_time || '',
       createdAt: r.created_at
@@ -78,6 +80,7 @@
       status: item.status || 'open',
       post_type: item.postType || 'lost',
       owner_id: item.ownerId || '',
+      pickup_location: item.pickupLocation || '',
       pub_time: item.time || new Date().toLocaleString('zh-CN')
     };
     return row;
@@ -86,11 +89,16 @@
   LF.api.getCloud = getCloud;
   LF.api.loadCache = loadCache;
 
+  /* 显式列出字段而不是偷懒用 '*'：pickup_location 是后加的列，
+     明确列出来才能保证广场一定拿到寄存点，不会因为云端默认列集不同而静默丢字段。 */
+  var ITEM_COLS = 'id,title,detail,location,image,color_feature,ai_desc,ai_tags,notice,' +
+    'category,color_tone,status,post_type,owner_id,pickup_location,claim_at,pub_time,created_at';
+
   /** 拉取全部物品（云端优先，失败回退本地缓存） */
   LF.api.listItems = async function () {
     try {
       var res = await getCloud().database.from(LF.config.table)
-        .select('*')
+        .select(ITEM_COLS)
         .order('created_at', { ascending: false })
         .limit(1000);
       if (res.error) throw res.error;
@@ -147,6 +155,7 @@
     if ('ownerId' in patch) row.owner_id = patch.ownerId;
     if ('image' in patch) row.image = patch.image;
     if ('colorFeature' in patch) row.color_feature = patch.colorFeature;
+    if ('pickupLocation' in patch) row.pickup_location = patch.pickupLocation;
     try {
       var res = await getCloud().database.from(LF.config.table).update(row).eq('id', id);
       if (res.error) throw res.error;
@@ -211,17 +220,14 @@
     }
   };
 
-  /** 广场可见物品：排除已找回（status = 'returned'）的记录 */
+  /**
+   * 广场可见物品：排除已找回（status = 'returned'）的记录。
+   * claimed（已有人认领）仍然保留——阿寻给的 #item-<id> 深链经常指向刚认领的记录，
+   * 过滤掉会让链接跳空；广场上用徽章区分状态就够了。
+   */
   LF.api.listPublicItems = async function () {
     var items = await LF.api.listItems();
     return items.filter(function (x) { return x.status !== 'returned'; });
-  };
-
-  /** 我的发布：按本机 ownerId 过滤（只有自己发的才出现在“我的发布”里） */
-  LF.api.listMyItems = async function () {
-    var me = LF.api.ownerId();
-    var items = await LF.api.listItems();
-    return items.filter(function (x) { return x.ownerId === me; });
   };
 
   /* ================= 留言（认领联系失主） ================= */
