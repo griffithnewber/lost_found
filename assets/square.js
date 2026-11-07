@@ -19,6 +19,8 @@
 
   var all = [];        // 云端拉回来的全部可见物品
   var keyword = '';    // 当前筛选词
+  // 已找回提示卡的「粘性状态」：轮询重绘会把 DOM 清掉，靠这个在 draw() 后补回来
+  var returnedSticky = null;
 
   function el(id) { return document.getElementById(id); }
 
@@ -60,6 +62,7 @@
       box.innerHTML = '<div class="empty">' +
         (all.length ? '没有匹配的物品，换个词试试' : '广场上还没有失物') +
         '</div>';
+      paintReturnedCard(false);
       return;
     }
 
@@ -88,6 +91,8 @@
         '</div>' +
         '</div></div>';
     }).join('');
+
+    paintReturnedCard(false);   // 重绘后把已找回提示卡补回顶部
   }
 
   /* ================================================================
@@ -232,6 +237,19 @@
   LF.square.bindByCode = async function (raw) {
     var id = parseCode(raw);
     if (!id) { LF.ui.toast('编号长这样：LF-18，或者直接填 18', 'error', 3000); return false; }
+    // 先查状态：已找回的记录不在广场列表里，输入编号也能看到它的归宿（无需登录）
+    var listed = all.filter(function (x) { return x.id === id; })[0];
+    if (!listed) {
+      var probe = await LF.api.findItemById(id);
+      if (!probe) {
+        LF.ui.toast('没有找到 LF-' + id + ' 这条记录，编号可能不对', 'error', 4000);
+        return false;
+      }
+      if (probe.status === 'returned') {
+        showReturnedCard(id, probe);
+        return true;
+      }
+    }
     if (!LF.auth.userId()) {
       LF.auth.require('绑定前先登录，绑好之后这条才算你发的', function () { LF.square.bindByCode(raw); });
       return false;
@@ -295,11 +313,7 @@
    * 广场顶部，明确告诉他这条已成功找回、何时认领，直到下次刷新广场才消失。
    * 只展示公开字段（标题 / 认领时间 / 公开说明），detail 与 location 不出现。
    */
-  function showReturnedCard(id, item) {
-    var box = el('square-list');
-    if (!box) return;
-    var old = el('returned-card');
-    if (old) old.remove();
+  function buildReturnedCard(id, item) {
     var claimAt = item.claimAt ? new Date(item.claimAt) : null;
     var claimText = claimAt && !isNaN(claimAt.getTime())
       ? '认领完成于 ' + claimAt.toLocaleString('zh-CN', { hour12: false })
@@ -314,9 +328,26 @@
       '<b>LF-' + id + (item.title ? '「' + LF.ui.esc(item.title) + '」' : '') + '已被认领，成功找回</b>' +
       '<div class="muted">' + claimText + '。已找回的物品按广场规则从列表下架，记录本身留档。' +
       (item.notice ? '<br>原发布说明：「' + LF.ui.esc(item.notice) + '」' : '') +
-      '</div></div></div>';
+      '</div></div>' +
+      '<button class="ghost returned-card-close" id="returned-card-close">知道了</button>' +
+      '</div>';
+    return card;
+  }
+
+  /** 把粘住的提示卡渲染到列表顶部（scroll=true 时滚过去，供深链进站使用） */
+  function paintReturnedCard(scroll) {
+    var box = el('square-list');
+    if (!box || !returnedSticky) return;
+    var old = el('returned-card');
+    if (old) old.remove();
+    var card = buildReturnedCard(returnedSticky.id, returnedSticky.item);
     box.insertBefore(card, box.firstChild);
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (scroll) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function showReturnedCard(id, item) {
+    returnedSticky = { id: id, item: item };
+    paintReturnedCard(true);
   }
 
   /* 首屏骨架屏：比「正在加载广场…」一行字更像真页面，减少白屏感 */
@@ -401,6 +432,17 @@
 
     // 认领/留言处理完（留言会广播 lf:changed）后刷新广场状态
     document.addEventListener('lf:changed', function () { LF.square.render(); });
+
+    // 页面已经开着时再点 #item-<id> 链接，只会改 hash、不会重载——必须监听 hashchange
+    window.addEventListener('hashchange', function () { focusFromHash(); });
+
+    // 「知道了」关掉已找回提示卡
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest || !e.target.closest('#returned-card-close')) return;
+      returnedSticky = null;
+      var c = el('returned-card');
+      if (c) c.remove();
+    });
 
     // 补照片：登录后才能补，避免有人随手改别人的记录（广场 + 我的发布共用 addPhotoById）
     document.addEventListener('click', function (e) {

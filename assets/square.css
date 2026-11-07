@@ -111,3 +111,4 @@
 .returned-card-icon { font-size: 22px; line-height: 1; margin-top: 2px; }
 .returned-card-body b { font-size: 14px; }
 .returned-card-body .muted { margin-top: 4px; font-size: 12.5px; line-height: 1.6; }
+.returned-card-close { margin-left: auto; flex: none; align-self: flex-start; font-size: 12px; padding: 4px 10px; }
