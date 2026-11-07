@@ -1,6 +1,6 @@
 {
   "name": "lost-found-assistant",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "description": "Conversational lost-and-found agent: registers found items, matches lost reports, and verifies ownership with hidden-feature questions.",
   "author": {
     "name": "lost_found team"
