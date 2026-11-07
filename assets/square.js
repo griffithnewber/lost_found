@@ -279,12 +279,44 @@
     }
     var label = 'LF-' + id + (item.title ? '「' + item.title + '」' : '');
     if (item.status === 'returned') {
-      LF.ui.toast(label + ' 已经认领完成、从广场下架了', 'info', 5000);
+      showReturnedCard(id, item);
     } else if (item.status === 'claimed') {
       LF.ui.toast(label + ' 已有人认领，广场上还留着记录，往下翻翻看', 'info', 5000);
     } else {
       LF.ui.toast('广场里暂时没有 ' + label + '，点「🔄 刷新广场」再试一次', 'info', 4500);
     }
+  }
+
+  /**
+   * 已找回记录的常驻提示卡。
+   *
+   * 为什么不用 toast：拾得人登记→绑定→物品被认领找回，全程在网页上只有
+   * 这一个「确认归宿」的时机，5 秒 toast 一闪而过等于没确认。改成卡片插在
+   * 广场顶部，明确告诉他这条已成功找回、何时认领，直到下次刷新广场才消失。
+   * 只展示公开字段（标题 / 认领时间 / 公开说明），detail 与 location 不出现。
+   */
+  function showReturnedCard(id, item) {
+    var box = el('square-list');
+    if (!box) return;
+    var old = el('returned-card');
+    if (old) old.remove();
+    var claimAt = item.claimAt ? new Date(item.claimAt) : null;
+    var claimText = claimAt && !isNaN(claimAt.getTime())
+      ? '认领完成于 ' + claimAt.toLocaleString('zh-CN', { hour12: false })
+      : '认领已完成';
+    var card = document.createElement('div');
+    card.className = 'returned-card';
+    card.id = 'returned-card';
+    card.innerHTML =
+      '<div class="returned-card-main">' +
+      '<div class="returned-card-icon">✅</div>' +
+      '<div class="returned-card-body">' +
+      '<b>LF-' + id + (item.title ? '「' + LF.ui.esc(item.title) + '」' : '') + '已被认领，成功找回</b>' +
+      '<div class="muted">' + claimText + '。已找回的物品按广场规则从列表下架，记录本身留档。' +
+      (item.notice ? '<br>原发布说明：「' + LF.ui.esc(item.notice) + '」' : '') +
+      '</div></div></div>';
+    box.insertBefore(card, box.firstChild);
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   /* 首屏骨架屏：比「正在加载广场…」一行字更像真页面，减少白屏感 */

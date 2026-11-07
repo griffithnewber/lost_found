@@ -100,3 +100,14 @@
 @media (prefers-reduced-motion: reduce) {
   .sk-thumb, .sk-line { animation: none; }
 }
+
+/* 已找回记录的常驻提示卡：深链 #item-<id> 指向 returned 记录时插在广场顶部 */
+.returned-card {
+  margin: 0 0 14px; padding: 14px 16px;
+  border: 1px solid #cdebd2; border-radius: 12px;
+  background: #f2fbf4;
+}
+.returned-card-main { display: flex; gap: 12px; align-items: flex-start; }
+.returned-card-icon { font-size: 22px; line-height: 1; margin-top: 2px; }
+.returned-card-body b { font-size: 14px; }
+.returned-card-body .muted { margin-top: 4px; font-size: 12.5px; line-height: 1.6; }
