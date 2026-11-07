@@ -6,10 +6,10 @@
 <title>失物招领 · 广场</title>
 <!-- WorkBuddy 云服务 SDK（CDN 全局形式） -->
 <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
-<link rel="stylesheet" href="assets/styles.css">
-<link rel="stylesheet" href="assets/contact.css">
-<link rel="stylesheet" href="assets/square.css">
-<link rel="stylesheet" href="assets/mailbox.css">
+<link rel="stylesheet" href="assets/styles.css?v=20261107b">
+<link rel="stylesheet" href="assets/contact.css?v=20261107b">
+<link rel="stylesheet" href="assets/square.css?v=20261107b">
+<link rel="stylesheet" href="assets/mailbox.css?v=20261107b">
 </head>
 <body>
 
@@ -43,12 +43,12 @@
     <div class="hint" id="square-count"></div>
 
     <div class="code-bind">
-      <label style="margin-top:14px">🔑 有编号？把这条记录绑到我账号</label>
+      <label style="margin-top:14px">🔑 有编号？绑定归属，或查这条找到没</label>
       <div class="code-bind-row">
         <input type="text" id="bind-code" placeholder="例：LF-18 或 18" maxlength="16">
-        <button class="ghost" id="btn-bind-code">绑定</button>
+        <button class="ghost" id="btn-bind-code">绑定 / 查询</button>
       </div>
-      <div class="hint">阿寻拿不到你的账号，它登记的是「无主」记录。绑定后补照片、收留言、确认找回都算你自己那条。</div>
+      <div class="hint">阿寻拿不到你的账号，它登记的是「无主」记录。绑定后补照片、收留言、确认找回都算你自己那条；已找回的记录输入编号会直接显示归宿。</div>
     </div>
   </div>
 
@@ -91,16 +91,16 @@
 <!-- 模块加载顺序：config → api → ai → ui → textsearch → app → contact → square → auth → mailbox → notify -->
 <!-- textsearch.js 在 app.js 之前：横幅文案要读 LF.textSearch.enabled() -->
 <!-- search.js / match.js / stats.js 已随检索与统计面板一起下线，不再引入 -->
-<script src="assets/config.js"></script>
-<script src="assets/api.js"></script>
-<script src="assets/ai.js"></script>
-<script src="assets/ui.js"></script>
-<script src="assets/textsearch.js"></script>
-<script src="assets/app.js"></script>
-<script src="assets/contact.js"></script>
-<script src="assets/square.js"></script>
-<script src="assets/auth.js"></script>
-<script src="assets/mailbox.js"></script>
-<script src="assets/notify.js"></script>
+<script src="assets/config.js?v=20261107b"></script>
+<script src="assets/api.js?v=20261107b"></script>
+<script src="assets/ai.js?v=20261107b"></script>
+<script src="assets/ui.js?v=20261107b"></script>
+<script src="assets/textsearch.js?v=20261107b"></script>
+<script src="assets/app.js?v=20261107b"></script>
+<script src="assets/contact.js?v=20261107b"></script>
+<script src="assets/square.js?v=20261107b"></script>
+<script src="assets/auth.js?v=20261107b"></script>
+<script src="assets/mailbox.js?v=20261107b"></script>
+<script src="assets/notify.js?v=20261107b"></script>
 </body>
 </html>

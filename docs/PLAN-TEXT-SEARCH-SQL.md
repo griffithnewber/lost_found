@@ -521,7 +521,7 @@ SELECT (SELECT proowner::regrole::text FROM pg_proc WHERE proname='lf_search_tex
 | 4 | 同分排序 | 你已定：保留显式规则，**在规格里标为新增**，JS 对照同序（§5.2） |
 | 5 | 权限审查 | 已补 `permissions.test.mjs`（8 条）+ **默认权限回归**（`ALTER DEFAULT PRIVILEGES` 场景，含重复执行），未使用管理员身份兜底（§8） |
 | 6 | 隐私缺口 | 已作为**阻断项**处理：迁移 + api.js/ai.js/缓存/阿寻通道面全部改完并测过（§7） |
-| 7 | 专家 zip | 已重打（≠部署），包内 `plugin.json` 版本 **1.15.0**，未安装未发布 |
+| 7 | 专家 zip | 已重打（≠部署），包内 `plugin.json` 版本 **1.15.1**，未安装未发布 |
 | 8 | 测试库 | ✅ 已建（`wbapp_mnw…`（完整 id 与密钥只存本地 `.env.test`），独立应用、未发布），四项真联调全部跑通（§10.0） |
 | 10 | 网页入口 | ✅ 已补 `assets/textsearch.js`（开关控制，默认关），文案与测试同步 |
 | 11 | 线上数据 | 生产库本轮仍**只读**：未建函数、未加索引、未动权限 |
