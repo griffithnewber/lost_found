@@ -2,6 +2,7 @@
  * assets/api.js —— 数据层（A 拥有）
  * 对外契约（B/C 只调这些，不要直接碰 cloud 对象）：
  *   LF.api.listItems()                -> Promise<Item[]>
+ *   LF.api.searchItems(q, limit)      -> Promise<{ok, rows?, code?, error?}>  文字检索（共享 SQL 函数，p_keywords 固定 []）
  *   LF.api.createItem(item)           -> Promise<{ok:boolean, id?:number, error?:string}>
  *   LF.api.deleteItem(id)             -> Promise<{ok:boolean, error?:string}>
  *   LF.api.updateItem(id, patch)      -> Promise<{ok:boolean, error?:string}>
@@ -9,9 +10,13 @@
  *   LF.api.setStatus(text, ok)        -> void    右上角连接状态（由 ui.js 实现渲染）
  *
  * Item 结构：
- *   { id, title, detail, location, image, colorFeature,
+ *   { id, title, location, image, colorFeature,
  *     aiDesc, aiTags, status, postType, ownerId, pickupLocation, claimAt, time, createdAt }
- *   detail / location 为隐藏字段，仅核验流程使用；
+ *   ⚠️ v1.13.0 起浏览器**不再持有 detail / location / ai_desc / ai_tags**：
+ *   这四列在库里对 anon / authenticated 已收回 SELECT（见
+ *   db/migrations/2026-11-07_harden_public_columns.sql），本文件的查询也
+ *   显式不选它们。detail 只在服务端（阿寻按编号查）参与核验；
+ *   上面 Item 结构里保留同名字段只是为了让老调用方读到空值而不是 undefined。
  *   pickupLocation（寄存点）是公开字段，广场卡片会显示「可到某处认领」。
  */
 (function () {
@@ -31,27 +36,50 @@
     return cloud;
   }
 
-  var CACHE_KEY = 'lost_found_wbcloud_v1';
+  /* 缓存换 key：v1 时代缓存里是**整条记录**（含 detail / location / ai_desc），
+     那些内容已经落在用过网页的浏览器里。新版一律不再写入隐私列，旧 key 直接丢弃
+     （不做迁移，迁移就等于把隐私数据继续留在本机）。 */
+  var CACHE_KEY = 'lost_found_wbcloud_v2';
+  var LEGACY_CACHE_KEYS = ['lost_found_wbcloud_v1'];
+
+  /* 隐私列：即使服务端/缓存里混进来，也在进入内存前抹掉 */
+  var HIDDEN_FIELDS = ['detail', 'location', 'aiDesc', 'aiTags'];
+
+  function stripHidden(item) {
+    if (!item || typeof item !== 'object') return item;
+    var out = {};
+    for (var k in item) {
+      if (Object.prototype.hasOwnProperty.call(item, k) && HIDDEN_FIELDS.indexOf(k) < 0) out[k] = item[k];
+    }
+    return out;
+  }
+
+  function purgeLegacyCache() {
+    for (var i = 0; i < LEGACY_CACHE_KEYS.length; i++) {
+      try { localStorage.removeItem(LEGACY_CACHE_KEYS[i]); } catch (e) { /* 无痕模式忽略 */ }
+    }
+  }
+  purgeLegacyCache();
 
   function loadCache() {
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '[]'); }
-    catch (e) { return []; }
+    try {
+      var arr = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]');
+      return Array.isArray(arr) ? arr.map(stripHidden) : [];
+    } catch (e) { return []; }
   }
 
   function saveCache(items) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)); } catch (e) { /* 缓存失败不影响主流程 */ }
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(items.map(stripHidden))); }
+    catch (e) { /* 缓存失败不影响主流程 */ }
   }
 
   function rowToItem(r) {
     return {
       id: r.id,
       title: r.title || '',
-      detail: r.detail || '',
-      location: r.location || '',
+      // detail / location / ai_desc / ai_tags 故意不映射：浏览器不该持有它们
       image: r.image || null,
       colorFeature: r.color_feature || null,
-      aiDesc: r.ai_desc || '',
-      aiTags: Array.isArray(r.ai_tags) ? r.ai_tags : (r.ai_tags || []),
       notice: r.notice || '',
       category: r.category || '',
       colorTone: r.color_tone || '',
@@ -89,16 +117,19 @@
   LF.api.getCloud = getCloud;
   LF.api.loadCache = loadCache;
 
-  /* 显式列出字段而不是偷懒用 '*'：pickup_location 是后加的列，
-     明确列出来才能保证广场一定拿到寄存点，不会因为云端默认列集不同而静默丢字段。 */
-  var ITEM_COLS = 'id,title,detail,location,image,color_feature,ai_desc,ai_tags,notice,' +
+  /* 显式列出字段而不是偷懒用 '*'：两个原因 ——
+     1) pickup_location 是后加的列，明确列出来才能保证广场一定拿到寄存点；
+     2) 2026-11-07 起 detail / location / ai_desc / ai_tags 对 anon 已撤 SELECT，
+        select('*') 会直接 403。这份清单必须与
+        db/migrations/2026-11-07_harden_public_columns.sql 的授权列表逐字一致。 */
+  var PUBLIC_COLS = 'id,title,image,color_feature,notice,' +
     'category,color_tone,status,post_type,owner_id,pickup_location,claim_at,pub_time,created_at';
 
   /** 拉取全部物品（云端优先，失败回退本地缓存） */
   LF.api.listItems = async function () {
     try {
       var res = await getCloud().database.from(LF.config.table)
-        .select(ITEM_COLS)
+        .select(PUBLIC_COLS)
         .order('created_at', { ascending: false })
         .limit(1000);
       if (res.error) throw res.error;
@@ -117,7 +148,7 @@
     try {
       var res = await getCloud().database.from(LF.config.table)
         .insert(itemToRow(item))
-        .select();
+        .select(PUBLIC_COLS);          // 不能返回 detail：anon 对该列没有 SELECT
       if (res.error) throw res.error;
       var created = rowToItem(res.data[0]);
       var items = loadCache();
@@ -145,6 +176,12 @@
   /**
    * 局部更新：认领状态流转、归属、补照片等
    * patch 支持 { status, claimAt, aiDesc, aiTags, ownerId, image, colorFeature }
+   *
+   * ⚠️ 为什么 update 后面还要 `.select('id')`：
+   *   PostgREST 的 UPDATE 在「RLS 把行过滤掉了」时返回 **204 + 空结果，没有 error**。
+   *   只看 error 会把「一行都没改」当成成功——2026-11-07 验收时就真出现过：库里
+   *   缺 UPDATE 策略，网页提示「已绑到你账号」，实际 owner_id 还是空的。
+   *   所以必须把返回行数当成功判据：0 行 = 没写进去 = 失败。
    */
   LF.api.updateItem = async function (id, patch) {
     var row = {};
@@ -157,8 +194,15 @@
     if ('colorFeature' in patch) row.color_feature = patch.colorFeature;
     if ('pickupLocation' in patch) row.pickup_location = patch.pickupLocation;
     try {
-      var res = await getCloud().database.from(LF.config.table).update(row).eq('id', id);
+      var res = await getCloud().database.from(LF.config.table).update(row).eq('id', id).select('id');
       if (res.error) throw res.error;
+      if (!res.data || !res.data.length) {
+        return {
+          ok: false,
+          code: 'not_written',
+          error: '云端没有写入这条记录（可能没有权限，或记录已被删除），刷新后再试'
+        };
+      }
       var items = loadCache().map(function (x) {
         return x.id === id ? Object.assign({}, x, patch) : x;
       });
@@ -173,7 +217,7 @@
   /** 按 id 取单条（编号绑定、直达链接用）-> Promise<Item|null> */
   LF.api.findItemById = async function (id) {
     try {
-      var res = await getCloud().database.from(LF.config.table).select('*').eq('id', id).limit(1);
+      var res = await getCloud().database.from(LF.config.table).select(PUBLIC_COLS).eq('id', id).limit(1);
       if (res.error) throw res.error;
       var row = (res.data || [])[0];
       return row ? rowToItem(row) : null;
@@ -199,7 +243,7 @@
     if (!me) return { ok: false, code: 'nologin', error: '请先登录再绑定' };
     try {
       var db = getCloud().database;
-      var cur = await db.from(LF.config.table).select('*').eq('id', id).limit(1);
+      var cur = await db.from(LF.config.table).select(PUBLIC_COLS).eq('id', id).limit(1);
       if (cur.error) throw cur.error;
       var row = (cur.data || [])[0];
       if (!row) return { ok: false, code: 'notfound', error: '没有编号为 LF-' + id + ' 的记录' };
@@ -207,8 +251,16 @@
         if (row.owner_id === me) return { ok: true, already: true, item: rowToItem(row) };
         return { ok: false, code: 'taken', error: '这条记录已经绑到别的账号了' };
       }
-      var upd = await db.from(LF.config.table).update({ owner_id: me }).eq('id', id);
+      var upd = await db.from(LF.config.table).update({ owner_id: me }).eq('id', id).select('id');
       if (upd.error) throw upd.error;
+      // 返回 0 行 = 没写进去（RLS 过滤 / 无 UPDATE 权限）。别把「没改动」报成绑定成功。
+      if (!upd.data || !upd.data.length) {
+        return {
+          ok: false,
+          code: 'not_written',
+          error: '云端没有写入归属（可能没有权限），刷新后再试一次'
+        };
+      }
       var item = rowToItem(Object.assign({}, row, { owner_id: me }));
       saveCache(loadCache().map(function (x) {
         return x.id === id ? Object.assign({}, x, { ownerId: me }) : x;
@@ -229,6 +281,125 @@
     var items = await LF.api.listItems();
     return items.filter(function (x) { return x.status !== 'returned'; });
   };
+
+  /* ================= 文字检索：与阿寻共用同一个 SQL 函数 =================
+   *
+   * 算法已经搬到库里（db/migrations/2026-11-07_lf_search_text_v1.sql），
+   * 前端不再保留 search.js 那套本地打分：同义词扩展、2-gram、Dice、加分、
+   * 排序、分级全部由 lf_search_text_v1 算，网页只传参 + 渲染。
+   *
+   * 通道：WorkBuddy Cloud SDK 的 database.rpc(name, params)
+   *       → POST {endpoint}/.cloud/database/rest/rpc/<name>，参数走 JSON body。
+   *       这条路已经实测过：网关是 PostgREST，函数不存在时返回 404 + PGRST202，
+   *       说明 rpc 路由是通的，只要库里建了函数并 GRANT EXECUTE 就能调。
+   *
+   * 前置条件：库里必须先执行上面那份迁移。没执行时函数不存在，这里会返回
+   *           code='rpc_missing'，**不会**退回本地打分——静默降级会让人以为
+   *           算法在跑，其实跑的是另一套。
+   */
+  function rowToSearchHit(r) {
+    return {
+      item: rowToItem(r),
+      score: Number(r.score) || 0,
+      level: r.level || 'low',
+      label: r.label || '',
+      rank: Number(r.rank) || 0,
+      algorithmVersion: r.algorithm_version || ''
+    };
+  }
+
+  /**
+   * 文字检索
+   * @param {string} query    用户原话（或图片读出的「类别 + 主色」）
+   * @param {number} [limit=20]
+   * -> Promise<{ok:boolean, rows?:Array<{item,score,level,label,rank,algorithmVersion}>, code?:string, error?:string}>
+   *
+   * **输入契约（v1，两端统一）**：
+   *   - `p_query` 只做 `trim`，不改写：不转小写、不拆词、不扩同义词；
+   *   - `p_keywords` **固定传 `[]`**。同义词只由 SQL 内置字典（lf_expand_v1）处理，
+   *     前端和智能体都不再各扩一套 —— 两边扩的词不一样，同一句输入就会得到不同结果。
+   *     函数签名保留 `p_keywords`，只为离线对照测试和以后版本使用。
+   *
+   * 失败一律 `ok:false` + `code`，**绝不退化成 `rows: []`**。
+   * 这一条不是洁癖：调用方看到空数组只会说「没有匹配」，而真实的失败原因
+   * （函数没部署 / 没权限 / 网关 401 / 网络断 / 返回体不是数组）会被这句话盖掉，
+   * 用户于是以为「库里真没有」，把找回线索判断错。
+   */
+  LF.api.searchItems = async function (query, limit) {
+    // 0) 客户端初始化失败（配置缺失、SDK 没加载、createWorkBuddyCloud 抛错）
+    //    也要归到「失败」，不能因为拿不到 db 就当成没搜到。
+    var db;
+    try {
+      var cloud = getCloud();
+      db = cloud && cloud.database;
+    } catch (e) {
+      console.error('[api] searchItems: cloud client init failed', e);
+      return {
+        ok: false,
+        code: 'client_init_failed',
+        error: '云客户端初始化失败：' + ((e && (e.message || e)) || '未知错误')
+      };
+    }
+
+    if (!db || typeof db.rpc !== 'function') {
+      return { ok: false, code: 'rpc_unsupported', error: '当前云 SDK 没有 rpc 能力，无法调用共享检索函数' };
+    }
+
+    // limit 兜底：0 / 负数 / NaN 会让函数返回 0 行，那看起来就像「没有匹配」
+    var lim = Number(limit);
+    if (!isFinite(lim) || lim < 1) lim = 20;
+    if (lim > 200) lim = 200;
+    lim = Math.floor(lim);
+
+    var res;
+    try {
+      res = await db.rpc('lf_search_text_v1', {
+        // 只 trim，不改写原话；空串原样传（函数会返回 0 行，由调用方决定怎么说）
+        p_query: String(query == null ? '' : query).trim(),
+        // 固定空数组：同义词交给 SQL 字典，前端不扩词（见上方输入契约）
+        p_keywords: [],
+        p_limit: lim
+      });
+    } catch (e) {
+      console.error('[api] searchItems: rpc threw', e);
+      return failFromError(e, '调用共享检索函数失败');
+    }
+
+    if (res && res.error) return failFromError(res.error, '共享检索函数返回错误');
+
+    // 1) 返回体形状校验：没有 data、或 data 不是数组 —— 都是失败，不是空结果
+    if (!res || !Array.isArray(res.data)) {
+      var got = res === undefined ? 'undefined'
+        : res === null ? 'null'
+        : (typeof res.data === 'undefined' ? '无 data 字段' : 'data 不是数组（' + typeof res.data + '）');
+      return {
+        ok: false,
+        code: 'rpc_bad_response',
+        error: '共享检索函数返回体异常：' + got + '。这不代表「没有匹配」'
+      };
+    }
+
+    return { ok: true, rows: res.data.map(rowToSearchHit) };
+  };
+
+  /** 把 rpc 抛出的错误分类：函数不存在 / 其他失败，两者都不等于「没有匹配」 */
+  function failFromError(e, prefix) {
+    var codeText = (e && e.code) || '';
+    var msg = (e && (e.message || e.details || e.hint)) || '';
+    if (!msg) {
+      try {
+        msg = e && typeof e === 'object' ? JSON.stringify(e) : String(e || '');
+      } catch (err) { msg = String(e); }
+    }
+    if (!msg || msg === '{}') msg = '未知错误';
+    // 网关给的是 DATABASE_PGRST202（带命名空间前缀），所以用包含匹配而不是全等
+    var missing = /PGRST202|Could not find the function/i.test(codeText + ' ' + msg);
+    return {
+      ok: false,
+      code: missing ? 'rpc_missing' : 'rpc_failed',
+      error: prefix + '：' + msg
+    };
+  }
 
   /* ================= 留言（认领联系失主） ================= */
 
@@ -319,8 +490,16 @@
       var ids = (found.data || []).map(function (r) { return r.id; });
 
       if (ids.length) {
-        var upd = await db.from(LF.config.table).update({ owner_id: uid }).eq('owner_id', localId);
+        var upd = await db.from(LF.config.table).update({ owner_id: uid }).eq('owner_id', localId).select('id');
         if (upd.error) throw upd.error;
+        var moved = (upd.data || []).length;
+        // 一条都没改：说明被 RLS / 权限挡住了。这时候既不能报「已迁移 N 条」，
+        // 也不能删掉本机设备 ID（删了就再也找不回这批记录）。
+        if (!moved) {
+          console.error('[api] adoptLocalItems: 0 条被更新，保留本机设备 ID 以便重试');
+          return 0;
+        }
+        ids = upd.data.map(function (r) { return r.id; });
       }
       // 匿名时发出的留言也一并认领，否则信箱「发件」里看不到
       await db.from(LF.config.messageTable).update({ sender_id: uid }).eq('sender_id', localId);

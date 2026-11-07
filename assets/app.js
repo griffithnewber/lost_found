@@ -76,13 +76,23 @@
    * ================================================================ */
   var agentTipShown = false;
 
+  /* 横幅文案要跟着功能开关走：文字检索开着时再说「不能搜索」就是错的。
+     关着（默认）时与 index.html 里的静态文案一致，不做无谓改写。 */
+  function bannerDesc() {
+    if (window.LF && LF.textSearch && typeof LF.textSearch.enabled === 'function' && LF.textSearch.enabled()) {
+      return '网页可以按关键词试搜（结果来自数据库共享检索函数，分级与顺序不重算）；' +
+        '登记、认领核验仍然在聊天框里跟阿寻完成。';
+    }
+    return '网页现在只做展示：不能发布、不能搜索、不能核验。有新东西找不到，回来问阿寻就行。';
+  }
+
   function bindAgentBanner() {
     var banner = el('agent-banner');
     if (banner && cfg().bannerTitle) {
       var t = banner.querySelector('.agent-banner-title');
       var d = banner.querySelector('.agent-banner-desc');
       if (t) t.textContent = '💬 ' + cfg().bannerTitle;
-      if (d) d.textContent = '网页现在只做展示：不能发布、不能搜索、不能核验。有新东西找不到，回来问阿寻就行。';
+      if (d) d.textContent = bannerDesc();
     }
     var btn = el('agent-banner-btn');
     if (btn) btn.addEventListener('click', function () {

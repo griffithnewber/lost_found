@@ -118,6 +118,24 @@
 
 ---
 
+### P8 · 文字检索：必须走共享函数，顺序与分级原样保留
+
+**输入**
+```
+我丢了一张写有名字的证件卡，帮我找找有没有人捡到
+```
+
+**通过标准**
+- 检索走 `lf_search_text_v1`（`p_limit` 给 3），不是「捞 50 条自己比对」
+- 最多列 **3 条**，顺序 = 函数返回的 `rank` 顺序，**没有重新排序**
+- 相似度直接引用 `label`（如「很可能就是它 · 65%」），百分比**没有被改写成整数档位**（不是「相似度：高」这种自造分级）
+- 若展示「中/低」，对应关系是 high→高、mid→中、low→低，与函数一致
+- 理由只引用公开信息（编号、颜色·类别、地点、时间、状态、notice），**不出现 detail，也不出现 ai_desc 里的细节词**
+
+**常见失败**：自己又打一遍分（比如觉得某条「更像」就提到第二行）；把 `LF-16` 报成「相似度 90%」而函数给的是 30%；把 detail 里的名字写进理由。
+
+---
+
 ## 反向用例（防回归，改动越频繁越要跑）
 
 ### N1 · 泄题：答错时不能复述答案
@@ -346,6 +364,90 @@ IMG_2043.jpg
 
 ---
 
+### N14 · 查库失败 ≠ 没有匹配
+
+**输入**
+```
+我丢了一张写有名字的证件卡，帮我找找有没有人捡到
+```
+**触发方式**：在 `lf_search_text_v1` 还没建的环境里跑（本次改动未上生产前就是这种状态），或临时把函数名改错再问一次。
+
+**通过标准**
+- 回复明确是**「查库失败 / 连不上记录库」**，并且不给出「没有匹配」「暂时没人捡到」这类结论
+- 不编造记录、不虚构编号，也不假装查过
+- 仍给下一步：广场看板链接 + 能替他做的事（整理结构化记录、讲核验规则）
+
+**常见失败**：把工具报错当成「查询结果为空」，一句「暂时没查到哦」把失败说成没找到——这比查不到更糟，用户会以为东西真没人捡到。
+
+---
+
+## SQL 层：文字检索函数的对照测试
+
+提示词之外还有一层可以被机器验证的东西：`lf_search_text_v1` 的打分必须与历史 JS 完全一致。
+
+```bash
+cd tests && npm install && node --test
+```
+
+- 基准：`tests/fixtures/legacy-cc9e40d/`（`assets/search.js`、`match.js`、`ui.js`、`config.js` 的历史版本，逐字节取自提交 `cc9e40d`）
+- 被测：`db/migrations/2026-11-07_lf_search_text_v1.sql` 等三份迁移
+- 测试库：PGlite（PostgreSQL 16.4 WASM，内存实例，与生产库隔离）
+- 语料：`tests/lib/corpus.mjs` 的合成数据，**不含生产记录**
+- 当前：**87 条全绿**（13 个 suite）：SQL 语义 + 输入契约 + 函数权限 + 隐私列 + 索引 + 前端取数/渲染
+
+覆盖：
+
+| suite | 内容 |
+|---|---|
+| 与历史 JS 对照 | 候选顺序、score、level、label 逐条一致（16 组查询）；1.15 标题奖励；重复关键词与 0.3 封顶；隐藏细节 0.1/0.05 双门槛；returned/claimed；同分 tie-break；中文标点；大小写；候选池 1000 条截断；返回列不含私有字段 |
+| 输入契约（只 trim） | `aa` 与 `\t  aa  \n` 结果逐项相同且都保留 1.15 标题奖励；网页侧 `p_query` 只 trim（保留大小写/全角括号）、`p_keywords` 恒为 `[]`（旧的三参数写法也塞不进关键词）|
+| emoji 等价 | `lf_u16_units_v1` 与 JS `String.length` 逐串对齐（含 ZWJ 组合 emoji）；gram 数量与 JS `Set` 大小一致；`杯子😀` / `杯子😀x` 两侧逐分相同（0.3167 / 0.4357）|
+| 字典快照 | `wallet`/`glasses`/`brown`/`purple`/`clear` 在 v1 里没有 label |
+| 函数权限面 | 只有主函数 DEFINER；9 个函数 `search_path=pg_catalog`；anon/authenticated/service_role 只对主函数有 EXECUTE；PUBLIC 无 EXECUTE；owner 换成普通角色仍可跑 |
+| 默认权限回归 | 库上先 `ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon`，再跑迁移：helper 仍收得干净（先建探针函数证明默认权限确实生效，避免假通过）；迁移重复执行两遍结果不变 |
+| 前端取数（`api.js`） | 17 条：返回体缺 `data` / `data` 非数组 → `ok:false`；初始化抛错 → `client_init_failed`；SDK 无 rpc → `rpc_unsupported`；`PGRST202` → `rpc_missing`；limit=0 兜底成 20；只有成功且真 0 行才是 `rows:[]` |
+| 检索入口（`textsearch.js`） | 18 条：开关（config / `?textsearch=1` / `?textsearch=0` 优先级）；关闭时卡片隐藏不挂载；结果顺序与 label/rank/分数照抄；失败显示「检索失败…不是没有匹配」；只有成功 0 条才说「没有匹配」 |
+| 隐私列收紧 | 收紧前证明缺口存在；收紧后 4 个私有列不可读、公开列可读、写入仍可用、`RETURNING *` 被拒、anon 调函数仍能用到 detail 加分 |
+| 候选池索引 | 索引存在且列/方向一致；幂等；计划 `Limit → Index Only Scan`（无 Sort）；加索引前后候选序列一致 |
+
+改 SQL、改函数签名、动权限或索引后必须重跑，红了不许合。
+
+真联调（网关 / 角色 / 权限这一层，PGlite 证明不了）另跑：
+
+```bash
+node tests/live/rpc_smoke.mjs      # 需要仓库根 .env.test，指向测试应用
+```
+
+它做四件事，**每一项都对着真实数据断言**（2026-11-07 已在独立测试应用上跑通，**59 项全绿**）：
+
+1. 往测试库写 8 条合成记录（`owner_id=LFTEST_SEED`，跑完即删），断言「库里只有这批种子」；
+2. 用 CDN 上那份 SDK + 真实 `api.js` 调 `LF.api.searchItems()`（浏览器身份 → anon），
+   对 7 组查询断言：结果非空、含指定编号、`rank` 连续、编号与标题对应、无私有字段；其中一组只差首尾空白，用来验证「只 trim」；
+3. 期望值不是硬编码，而是用**历史 JS 现算**（`tests/lib/legacy.mjs`），逐条比 score/level/label；
+4. 错误路径看**实际错误码**：函数缺失 `DATABASE_PGRST202` / HTTP 404、错误密钥 `invalid_client`、
+   端点不可达、`select=detail` → HTTP 401 + `DATABASE_42501`；全部必须判成 `ok:false`。
+
+再与 SQL 工具直查结果逐项比对（`--keep` 保留数据）：
+
+```bash
+node tests/live/rpc_smoke.mjs --keep        # 写 out/live-result.json
+node tests/live/compare.mjs tests/live/out/live-result.json tests/live/out/sql-result.json
+```
+
+**两端输入一致**（本轮新增验收）：网页 `searchItems(q, n)` 与阿寻 `lf_search_text_v1($1, '[]', n)`
+对同一句原话（含首尾空白）返回的**前 3 条**编号/分数/rank/level/label 逐项相同——
+7 组查询全部一致（`黑色耳机` / `证件卡` / `aa` / `😀` / `雨伞` / `  雨伞  ` / 不存在的词）。
+
+浏览器预览（连测试库，不碰生产）：
+
+```bash
+node tests/live/make_preview.mjs            # 生成 .preview-test/（已 gitignore）
+cd .preview-test && python -m http.server 8787 --bind 127.0.0.1
+# /  → 开关关闭；/?textsearch=1 → 检索；/?textsearch=1&broken=1 → 请求失败
+```
+
+---
+
 ## 记录表（PR 里贴一下）
 
 | 用例 | 结果 | 备注 |
@@ -357,6 +459,9 @@ IMG_2043.jpg
 | P5 播报 | ✅ / ❌ | |
 | P6 编号绑定 | ✅ / ❌ | |
 | P7 代发留言 | ✅ / ❌ | |
+| P8 检索走共享函数 | ✅ / ❌ | |
+| P9 网页文字匹配入口（开关打开后可见、结果与函数一致） | ✅ / ❌ | |
+| P10 网页前 3 条 = 阿寻 3 条（同一句原话） | ✅ / ❌ | |
 | N1 泄题 | ✅ / ❌ | |
 | N2 张冠李戴 | ✅ / ❌ | |
 | N3 编造 | ✅ / ❌ | |
@@ -370,6 +475,8 @@ IMG_2043.jpg
 | N11 只认登记细节 | ✅ / ❌ | |
 | N12 detail 不被照片污染 | ✅ / ❌ | |
 | N13 网页只读看板话术 | ✅ / ❌ | |
+| N14 查库失败≠没匹配 | ✅ / ❌ | |
+| N15 检索失败话术（「检索失败」而不是「没有匹配」） | ✅ / ❌ | |
 
 ## 两个环境前提
 

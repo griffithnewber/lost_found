@@ -39,6 +39,17 @@ LF.config = {
     bindHint: '绑定后补照片、收留言、确认找回都算你自己那条'
   },
 
+  /* 功能开关。默认全关 —— 页面行为与「只读看板」完全一致。
+   *
+   * textSearch：打开广场上那个「文字匹配」入口。
+   *   打开方式二选一：把下面改成 true（长期开），或访问 ?textsearch=1（临时看）。
+   *   它只调用数据库共享函数 lf_search_text_v1，前端不保留任何打分代码；
+   *   函数没部署时页面会明确显示「检索失败：…」，不会说「没有匹配」。
+   *   开关关着时：卡片隐藏、不绑事件、横幅文案照旧。 */
+  features: {
+    textSearch: false
+  },
+
   // 数据表名
   table: 'lost_items',
   messageTable: 'item_messages',  // 认领留言线程

@@ -11,6 +11,15 @@
 
 ---
 
+> ⚠️ **本文档是 v1.11.0 的档案快照，已过时。**
+> 权威版本是 `expert/lost-found-assistant/agents/lost-found-assistant.md`（当前 v1.15.1）。
+> v1.13.0 起「文字检索」不再由模型先捞 50 条再自行打分，改为调用共享 SQL 函数
+> `lf_search_text_v1`（见 `db/migrations/2026-11-07_lf_search_text_v1.sql` 与
+> `docs/PLAN-TEXT-SEARCH-SQL.md`），排序与分级必须原样保留。下面的「B1/B2」与
+> 「查询」段落保留原样只为留档，**不要照着实现**。
+
+---
+
 ## 一、系统提示词
 
 全文如下（即 `agents/lost-found-assistant.md`，与仓库一致）：
