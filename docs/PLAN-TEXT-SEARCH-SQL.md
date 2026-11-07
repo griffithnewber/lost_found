@@ -386,9 +386,9 @@ $ cd tests && npm install && node --test
 
 ### 10.0 真联调结果（2026-11-07，已在本轮跑完）
 
-**测试应用**：`wbapp_mnw0nVzfZSVVkpsxgEqbxN`（会话内新建的独立应用，域名 `lf-test-bed.app.workbuddy.host`），
+**测试应用**：`wbapp_mnw…`（完整 id 与密钥只存本地 `.env.test`）（会话内新建的独立应用，域名 `<测试应用域名>`），
 与生产应用 `wbapp_lmzAUiNMSssVs6mpvimKsP` **不同库、不同域名、不同密钥**。
-建在独立目录 `C://Users//15473//lf-test-bed`（不是仓库目录）——发布是按目录找应用的，同目录绑两个应用会让「发布」落到不确定的目标上。
+建在独立目录 `<本地独立目录>`（不是仓库目录）——发布是按目录找应用的，同目录绑两个应用会让「发布」落到不确定的目标上。
 **未发布、无外网页面**；密钥只写在仓库根 `.env.test`（已 gitignore），全程没有出现在对话里。
 
 **测试库现状**：`lost_items` 按生产结构重建（18 列、同类型/默认值/主键），RLS 四策略照搬，
@@ -522,7 +522,7 @@ SELECT (SELECT proowner::regrole::text FROM pg_proc WHERE proname='lf_search_tex
 | 5 | 权限审查 | 已补 `permissions.test.mjs`（8 条）+ **默认权限回归**（`ALTER DEFAULT PRIVILEGES` 场景，含重复执行），未使用管理员身份兜底（§8） |
 | 6 | 隐私缺口 | 已作为**阻断项**处理：迁移 + api.js/ai.js/缓存/阿寻通道面全部改完并测过（§7） |
 | 7 | 专家 zip | 已重打（≠部署），包内 `plugin.json` 版本 **1.15.0**，未安装未发布 |
-| 8 | 测试库 | ✅ 已建（`wbapp_mnw0nVzfZSVVkpsxgEqbxN`，独立应用、未发布），四项真联调全部跑通（§10.0） |
+| 8 | 测试库 | ✅ 已建（`wbapp_mnw…`（完整 id 与密钥只存本地 `.env.test`），独立应用、未发布），四项真联调全部跑通（§10.0） |
 | 10 | 网页入口 | ✅ 已补 `assets/textsearch.js`（开关控制，默认关），文案与测试同步 |
 | 11 | 线上数据 | 生产库本轮仍**只读**：未建函数、未加索引、未动权限 |
 | 9 | commit | 输入统一、提示词修正、浏览器验收通过后已在开发分支 **commit 一次**（未 push、未合 main） |
