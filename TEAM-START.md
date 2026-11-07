@@ -153,6 +153,41 @@ DELETE FROM lost_items WHERE notice LIKE '【测试】%';
 
 **④ 版本号**：改一次升一位（措辞 → 补丁位，新增能力 → 次版本位）。演示前三个人对一下版本，不一致当场重装。
 
+**⑤ 本地有没推的改动，怎么和最新 main 合（最常见的手忙脚乱）**
+
+原则：**Git 不会自动覆盖你的东西**，它只会拒绝或让你手动合并。危险的是你用错命令。
+
+先看清状态：
+
+```bash
+git status                 # 改了哪些文件、有没有暂存
+git stash list             # 有没有存起来的改动
+git log --oneline -3       # 本地提交了什么
+```
+
+- **改动还没提交**（最常见）
+  ```bash
+  git checkout -b web/my-work     # 先挪到自己的分支，别在 main 上裸奔
+  git add -A && git commit -m "wip: 我的改动"
+  git pull --rebase origin main   # 拉最新，我的提交接到后面
+  ```
+  > 直接 `git pull` 会报 `Your local changes would be overwritten`——这是保护，不是坏了。先提交再拉。
+
+- **已经提交、但 push 被拒**（`non-fast-forward`）
+  ```bash
+  git pull --rebase origin main   # 把你的提交重放到最新 main 之后
+  # 有冲突就按提示改文件，改完 git add <文件> && git rebase --continue
+  git push -u origin web/my-work
+  ```
+
+- **绝对不要用**（会真的丢东西）：
+  `git push -f`、`git reset --hard`、`git checkout -- .`、`git clean -fd`。
+
+- **冲突了怎么办**：文件里会出现 `<<<<<<< HEAD`（线上的）/ `=======` / `>>>>>>>`（他的）三段，把不要的删掉、保留并合并想要的逻辑，再 `git add` 继续。
+  最容易冲突的三个文件：`assets/square.js`、`assets/square.css`、`index.html`——多人同时改网页时提前说一声。
+
+- **推不上去又赶时间**：先把改动 `git stash` 存起来，拉最新、跑通，再 `git stash pop` 放回来。stash 不会丢，`git stash list` 随时能找回。
+
 ---
 
 ## 7. 发版流程（只有队长执行，队友只需交 PR）
