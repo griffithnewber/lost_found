@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
 
-const PROD_HOST = 'lost-found-75068.app.workbuddy.host';
+const PROD_HOST = 'lost-found-56662.app.workbuddy.host';
 const PROD_KEY_PREFIX = 'wbpk_lmzAUiNMSssVs6mpvimKsP';
 
 function readEnvFile(file) {

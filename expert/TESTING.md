@@ -89,7 +89,7 @@
 **通过标准**
 - **真的查了库**，报出的条数和库里 `open` 记录一致（现在是 3 条：19 / 18 / 16）
 - 用表格列：编号、物品、地点、时间，只含公开字段
-- 末尾给看板链接 `https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J`
+- 末尾给看板链接 `https://lost-found-56662.app.workbuddy.host/?sharecode=LOJRSCWJAA`
 - **不能出现任何隐藏细节**：「浅划痕」「红色贴纸」「衣服可以脱下来」「卡上名字」
 
 **常见失败**：凭印象报数（比如漏掉刚登记的 LF-19），或者把 `detail` 当成描述写进表格。

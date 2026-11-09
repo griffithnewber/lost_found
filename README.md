@@ -6,11 +6,11 @@
 
 ## 线上地址
 
-https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J
+https://lost-found-56662.app.workbuddy.host/?sharecode=LOJRSCWJAA
 
 任何人打开该链接即可**浏览广场、绑定编号、补照片、收发留言**；数据的写入（登记 / 匹配 / 核验 / 改状态）全部在聊天框里由智能体「寻物官 · 阿寻」完成。数据存在云端数据库（`lost_items` 表），所有设备共享同一份数据。
 
-> 注意：链接必须带 `?sharecode=YEX2LGOS5J` 整段复制，删掉参数会 403。
+> 注意：链接必须带 `?sharecode=LOJRSCWJAA` 整段复制，删掉参数会 403。
 
 ## 两部分，分开维护
 

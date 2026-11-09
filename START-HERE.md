@@ -39,7 +39,7 @@ git config --global http.proxy http://127.0.0.1:7890   # 如果你的网络需�
 **看网页**：直接开线上链接（必须带 sharecode，裸域名会 403）
 
 ```
-https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J
+https://lost-found-56662.app.workbuddy.host/?sharecode=LOJRSCWJAA
 ```
 
 本地预览也行，不需要 npm、不需要构建：
@@ -167,7 +167,7 @@ bash expert/build.sh                    # 1. 重新打包
 
 ## 5. 常见问题
 
-**线上打不开 / 403** —— 链接必须带 `?sharecode=YEX2LGOS5J`，裸域名会被拒。
+**线上打不开 / 403** —— 链接必须带 `?sharecode=LOJRSCWJAA`，裸域名会被拒。
 
 **改了网页没反应** —— `⌘⇧R` 强制刷新；还不行动手检查 `index.html` 有没有引到你的文件。
 

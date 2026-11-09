@@ -30,7 +30,7 @@ import { SEED, SEED_MARK, CASES, toCorpus } from './fixtures.mjs';
 import { loadLegacyJs } from '../lib/legacy.mjs';
 import { runLegacy } from '../lib/corpus.mjs';
 
-const PROD_HOST = 'lost-found-75068.app.workbuddy.host';
+const PROD_HOST = 'lost-found-56662.app.workbuddy.host';
 const OUT_DIR = path.join(ROOT, 'tests', 'live', 'out');
 const OUT_FILE = path.join(OUT_DIR, 'live-result.json');
 const TOL = 1e-9;

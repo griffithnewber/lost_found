@@ -20,7 +20,7 @@
 
 固定值（不用猜、不用问）：
 
-- 线上网页：`https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J`
+- 线上网页：`https://lost-found-56662.app.workbuddy.host/?sharecode=LOJRSCWJAA`
   **必须带 `?sharecode=` 整段复制**——裸域名或删掉参数会 403 / 白屏。
 - 仓库：`https://github.com/griffithnewber/lost_found.git`
 - 云应用 ID：`wbapp_lmzAUiNMSssVs6mpvimKsP`

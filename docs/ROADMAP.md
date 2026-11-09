@@ -1,6 +1,6 @@
 # 失物招领 · 项目路线图与三人分工
 
-> 线上地址：https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J
+> 线上地址：https://lost-found-56662.app.workbuddy.host/?sharecode=LOJRSCWJAA
 > 代码仓库：https://github.com/griffithnewber/lost_found
 > 本文档为协作基准，改动请走 PR 或提交说明。
 

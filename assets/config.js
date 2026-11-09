@@ -6,7 +6,7 @@
 window.LF = window.LF || {};
 
 LF.config = {
-  endpoint: 'https://lost-found-75068.app.workbuddy.host',
+  endpoint: 'https://lost-found-56662.app.workbuddy.host',
   oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
   publishableKey: 'wbpk_lmzAUiNMSssVs6mpvimKsP_rbYHVaDjHjeefagx8HdBFj0s5Cvd1a5l',
 
