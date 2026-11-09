@@ -50,8 +50,11 @@
 --   （实测该角色 rolsuper=false / rolbypassrls=true，不是超级用户）；
 --   helper 一律不授权给客户端角色。不放宽到 superuser，也不用管理员身份兜底。
 --
--- ⚠️ 状态：**未在线上执行**。本文件仅随开发分支提交审查；
---    上线需走「测试环境验证 → 评审 → 生产迁移」流程，见文末 §上线前提。
+-- ✅ 执行状态：2026-11-09 已在应用 wbapp_7WvCzu8yW3N6uppqR8xFUp 的云库执行
+--    （逐条语句下发，9 个函数全部创建；pg_get_functiondef 的 md5 与旧环境逐一相同，
+--     检索结果逐分对照一致）。执行位置与核对方式见 docs/PLAN-TEXT-SEARCH-SQL.md。
+--    注意：执行通道一次只能下发**一条** SQL 语句，故按 §1…§8 顺序分开执行；
+--    本文件本身仍是完整、可重复执行（CREATE OR REPLACE）的版本。
 -- =====================================================================
 
 
@@ -564,12 +567,15 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =====================================================================
--- §上线前提（本文件未执行，仅随分支提交审查）
---   1. 需要一个隔离测试库（WorkBuddy 应用目前只有生产库一个，见
---      docs/PLAN-TEXT-SEARCH-SQL.md 的「隔离测试库怎么建」）；
---   2. 测试库跑本文件 + tests/sql/*.test.mjs，全绿；
---   3. 评审通过后在生产执行（顺序：函数 → 索引 → 列权限，见 PLAN 文档）；
---   4. 回滚：
+-- §上线前提（2026-11-09 已按此顺序在新环境执行完毕，留作复现步骤）
+--   1. 函数（§1…§7）→ 主函数授权（§8 前半）→ helper 撤权（§8 后半）→ NOTIFY；
+--   2. 索引见 2026-11-07_lf_search_index.sql；
+--   3. 列权限见 2026-11-07_harden_public_columns.sql；
+--   4. 执行后核对（本次结果：owner 与 lost_items 表 owner 一致，主函数 acl 仅
+--      anon/authenticated/service_role + owner，helper 仅 owner）：
+--        SELECT proname, proowner::regrole, prosecdef, proacl FROM pg_proc
+--         WHERE proname LIKE 'lf\_%';
+--   5. 回滚（不影响表数据；列权限回滚见 2026-11-07_harden_public_columns.sql 文末）：
 --        DROP FUNCTION public.lf_search_text_v1(text,text[],integer);
 --        DROP FUNCTION public.lf_expand_v1(text);
 --        DROP FUNCTION public.lf_u16_units_v1(text);
@@ -579,5 +585,4 @@ NOTIFY pgrst, 'reload schema';
 --        DROP FUNCTION public.lf_ai_tags_text_v1(jsonb);
 --        DROP FUNCTION public.lf_category_label_v1(text);
 --        DROP FUNCTION public.lf_color_label_v1(text);
---      不影响表数据；列权限回滚见 2026-11-07_harden_public_columns.sql 文末。
 -- =====================================================================

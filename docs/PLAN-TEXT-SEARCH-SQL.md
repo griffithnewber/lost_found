@@ -4,7 +4,10 @@
 > 迁移文件：`db/migrations/2026-11-07_lf_search_text_v1.sql`、`..._lf_search_index.sql`、`..._harden_public_columns.sql`
 > 测试：`tests/sql/*.test.mjs`（**49 条，全绿**）+ `tests/live/rpc_smoke.mjs`（等测试库）
 > 算法版本常量：`lf-text-v1@cc9e40d`
-> 状态：**代码完成、离线测试通过、未 commit、未部署、未对生产库执行任何 DDL/DML**
+> 状态：**已部署**（2026-11-09，应用 `wbapp_7WvCzu8yW3N6uppqR8xFUp`
+> / 环境 `wbcs_Tc6c6mcrMnoB1LDqyj8Vi6`）。9 个函数已创建，函数定义 md5 与旧环境逐一相同；
+> 主函数 SECURITY DEFINER + `anon/authenticated/service_role` 可执行，helper 全部只留 owner；
+> `anon` 直调 helper 返回 PGRST202。前端入口仍受 `LF.config.features.textSearch` 开关控制（默认关）。
 
 ---
 
