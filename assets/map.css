@@ -27,28 +27,26 @@
 .map-need-key .nk-title { font-size: 14px; font-weight: 600; color: #555; }
 .map-need-key .nk-text { font-size: 12px; color: #8B99AD; max-width: 420px; line-height: 1.7; }
 
-/* ---- 图层元素（HTML 覆盖物） ---- */
+/* ---- 图层元素（HTML 覆盖物，left/top 由 map.js 的 updateDOM 计算） ---- */
 .item-mk {
-  position: absolute; transform: translate(-50%, -50%);
   width: 32px; height: 32px; border-radius: 50%;
   background: #fff; border: 2px solid #9DBCE8;
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,.15);
-  transition: transform .15s;
+  user-select: none;
 }
-.item-mk:hover { transform: translate(-50%, -50%) scale(1.18); z-index: 5; }
+.item-mk:hover { transform: scale(1.18); z-index: 5; }
 .item-mk.mk-lost {
   border: 2px dashed #F2B24C; background: #FFF8EE; opacity: .88;
 }
 .item-mk.mk-found { border: 2px solid #9DBCE8; background: #fff; }
 .item-mk.pulse { animation: mk-pulse 1.1s ease-in-out 2; }
 @keyframes mk-pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50%      { transform: translate(-50%, -50%) scale(1.35); z-index: 6; }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.35); z-index: 6; }
 }
 
 .pickup-mk {
-  position: absolute; transform: translate(-50%, -100%);
   text-align: center; cursor: default; pointer-events: none; z-index: 4;
 }
 .pickup-mk .pickup-pin {
@@ -64,7 +62,6 @@
 }
 
 .unknown-pocket {
-  position: absolute; transform: translate(-50%, -50%);
   font-size: 11px; color: #8B99AD; padding: 4px 10px;
   background: #EFF3F8; border: 1px dashed #D5DEEA; border-radius: 12px;
 }

@@ -1,9 +1,13 @@
 /**
  * assets/map.js —— 校园地图（广场的子模块，B 拥有）
  *
- * 底图：腾讯地图 GL JS（合规要求：国内地图仅允许腾讯/高德/百度/天地图，
- * 不用 OpenStreetMap 等）。SDK 在 index.html 引入，key 占位符需站长替换。
+ * 底图：腾讯地图 GL JS（合规要求：国内地图仅允许腾讯/高德/百度/天地图）。
+ * SDK 在 index.html 引入，key 为站长自备 Key。
  * 坐标：GCJ-02，见 assets/zones.js。
+ *
+ * 覆盖物按官方 DOMOverlay 生命周期实现（onInit 存参 → createDOM 建元素 →
+ * updateDOM 用 map.projectToContainer 自己定位 → onDestroy 清理）。
+ * 注意：定位必须自己在 updateDOM 里算，SDK 不会替你摆位置。
  *
  * 两个图层：
  *   寄存点层（locations 表 zone 非空的行）：📍 画在区中心锚点 + 名称标签；
@@ -11,20 +15,14 @@
  *   半径，见 zones.spread）——寄存点居中、物品绕圈，两层天然不重叠。
  * area 为空的老记录画进「未定位」收纳点，不丢数据。
  *
- * 交互：
- *   电脑：Ctrl+滚轮缩放（普通滚轮只滚页面，不劫持）、双击放大、拖拽平移
- *   手机：双指捏合缩放、单指拖拽（腾讯 SDK 原生支持）
- *   复位按钮回到初始视野
+ * 交互：电脑 Ctrl+滚轮缩放（capture 阶段拦截 SDK 普通滚轮，页面照常滚）、
+ * 手机双指捏合/拖拽/双击由 SDK 原生支持、复位按钮回初始视野。
  *
- * 联动（与广场列表双向）：
- *   点物品标记 → 广播 'lf:focus-item'（square.js 滚到卡片并高亮）
- *   收到 'lf:map-focus' → 对应标记脉冲 + 平移到视野中心
+ * 联动：点物品标记 → 'lf:focus-item'（square.js 滚到卡片并高亮）；
+ *       收到 'lf:map-focus' → 标记脉冲 + 平移到视野中心。
  *
- * 对外接口（与旧 SVG 版完全一致）：
- *   LF.map.init(container)                  挂载（DOMContentLoaded 一次）
- *   LF.map.setItems(rows)                   广场过滤后的物品（每次 draw 调）
- *   LF.map.setLocations(locs)               locations 表数据（拉一次）
- *   LF.map.setShowPickup(bool)              寄存点图层开关
+ * 对外接口：
+ *   LF.map.init(container) / setItems(rows) / setLocations(locs) / setShowPickup(bool)
  */
 (function () {
   'use strict';
@@ -57,65 +55,45 @@
     };
   }
 
-  /* ---------- 覆盖物：物品 emoji ---------- */
-  function ItemOverlay(opts) {
-    TMap.DOMOverlay.call(this, opts);
+  /* ---------- 覆盖物基类：官方 DOMOverlay 生命周期 ---------- */
+  /* options: { map, position, cls, html, title, anchor('center'|'bottom'), onClick } */
+  function LfOverlay(options) {
+    TMap.DOMOverlay.call(this, options);
   }
-  /* 优先走官方 DOMOverlay；SDK 没有该类时退化为不挂载（ready=false 已兜底） */
-  ItemOverlay.prototype = Object.create(TMap.DOMOverlay.prototype);
-  ItemOverlay.prototype.constructor = ItemOverlay;
-  ItemOverlay.prototype.onInit = function (options) {
-    var it = options.item;
-    var isFound = it.postType === 'found';
+  LfOverlay.prototype = new TMap.DOMOverlay();
+  LfOverlay.prototype.onInit = function (options) {
+    this.position = options.position;
+    this._cls = options.cls || '';
+    this._html = options.html || '';
+    this._title = options.title || '';
+    this._anchor = options.anchor || 'center';
+    this._onClick = options.onClick || null;
+  };
+  LfOverlay.prototype.createDOM = function () {
     var self = this;
-    this.dom = document.createElement('div');
-    this.dom.className = 'item-mk ' + (isFound ? 'mk-found' : 'mk-lost');
-    this.dom.title = 'LF-' + it.id + ' ' + (it.title || '') + (isFound ? '（待认领）' : '（失者寻物）');
-    this.dom.textContent = emojiOf(it);
-    this.dom.addEventListener('click', function (e) {
-      e.stopPropagation();
-      document.dispatchEvent(new CustomEvent('lf:focus-item', { detail: { id: it.id } }));
-    });
+    var d = document.createElement('div');
+    d.style.cssText = 'position:absolute;top:0;left:0;';
+    d.className = this._cls;
+    if (this._title) d.title = this._title;
+    d.innerHTML = this._html;
+    if (this._onClick) {
+      d.addEventListener('click', function (e) {
+        e.stopPropagation();
+        self._onClick(e);
+      });
+    }
+    return d;
   };
-  ItemOverlay.prototype.onDestroy = function () {
-    if (this.dom && this.dom.parentNode) this.dom.parentNode.removeChild(this.dom);
-    this.dom = null;
+  LfOverlay.prototype.updateDOM = function () {
+    if (!this.map || !this.dom) return;
+    var pixel = this.map.projectToContainer(this.position);
+    var left = pixel.getX() - this.dom.clientWidth / 2;
+    var top = pixel.getY() - this.dom.clientHeight / 2;
+    if (this._anchor === 'bottom') top = pixel.getY() - this.dom.clientHeight;
+    this.dom.style.left = left + 'px';
+    this.dom.style.top = top + 'px';
   };
-
-  /* ---------- 覆盖物：寄存点 📍 ---------- */
-  function PickupOverlay(opts) {
-    TMap.DOMOverlay.call(this, opts);
-  }
-  PickupOverlay.prototype = Object.create(TMap.DOMOverlay.prototype);
-  PickupOverlay.prototype.constructor = PickupOverlay;
-  PickupOverlay.prototype.onInit = function (options) {
-    var loc = options.loc;
-    var z = options.zone;
-    this.dom = document.createElement('div');
-    this.dom.className = 'pickup-mk';
-    this.dom.title = loc.name + '（' + (loc.address || '') + ' ' + (loc.open_hours || '') + '）';
-    this.dom.innerHTML =
-      '<div class="pickup-pin">📍</div>' +
-      '<div class="pickup-name">' + z.label + '</div>';
-  };
-  PickupOverlay.prototype.onDestroy = function () {
-    if (this.dom && this.dom.parentNode) this.dom.parentNode.removeChild(this.dom);
-    this.dom = null;
-  };
-
-  /* ---------- 覆盖物：「未定位」收纳点 ---------- */
-  function PocketOverlay(opts) {
-    TMap.DOMOverlay.call(this, opts);
-  }
-  PocketOverlay.prototype = Object.create(TMap.DOMOverlay.prototype);
-  PocketOverlay.prototype.constructor = PocketOverlay;
-  PocketOverlay.prototype.onInit = function () {
-    this.dom = document.createElement('div');
-    this.dom.className = 'unknown-pocket';
-    this.dom.textContent = '未定位';
-    this.dom.title = '登记时没有说清区域的旧记录都收在这里';
-  };
-  PocketOverlay.prototype.onDestroy = function () {
+  LfOverlay.prototype.onDestroy = function () {
     if (this.dom && this.dom.parentNode) this.dom.parentNode.removeChild(this.dom);
     this.dom = null;
   };
@@ -129,15 +107,31 @@
   function drawZones() {
     locOverlays.forEach(destroyOverlay);
     locOverlays = [];
+    pocketOverlay && destroyOverlay(pocketOverlay);
+    pocketOverlay = null;
     if (!map || !ready) return;
+
+    // 「未定位」收纳点常驻（有 area 为空的记录才有意义，但画上无妨）
+    pocketOverlay = new LfOverlay({
+      map: map,
+      position: latLng(LF.zones.unknownPocket),
+      cls: 'unknown-pocket',
+      html: '未定位',
+      title: '登记时没有说清区域的旧记录都收在这里'
+    });
+
     if (showPickup) {
       locations.filter(function (l) { return l.zone && LF.zones.get(l.zone); })
         .forEach(function (l) {
-          locOverlays.push(new PickupOverlay({
+          var z = LF.zones.get(l.zone);
+          locOverlays.push(new LfOverlay({
             map: map,
-            position: latLng(LF.zones.get(l.zone)),
-            loc: l,
-            zone: LF.zones.get(l.zone)
+            position: latLng(z),
+            cls: 'pickup-mk',
+            anchor: 'bottom',
+            html: '<div class="pickup-pin">📍</div>' +
+                  '<div class="pickup-name">' + z.label + '</div>',
+            title: l.name + '（' + (l.address || '') + ' ' + (l.open_hours || '') + '）'
           }));
         });
     }
@@ -167,9 +161,17 @@
         var ringIdx = n > 8 ? Math.min(Math.floor(i / n), sp.maxRing - 1) : 0;
         var r = (sp.ring + ringIdx * sp.gap);
         var d = metersToDelta(anchor.lat, r * Math.cos(ang), r * Math.sin(ang));
-        var pos = new TMap.LatLng(anchor.lat + d.lat, anchor.lng + d.lng);
-        var o = new ItemOverlay({ map: map, position: pos, item: it });
-        itemOverlays[it.id] = o;
+        var isFound = it.postType === 'found';
+        itemOverlays[it.id] = new LfOverlay({
+          map: map,
+          position: new TMap.LatLng(anchor.lat + d.lat, anchor.lng + d.lng),
+          cls: 'item-mk ' + (isFound ? 'mk-found' : 'mk-lost'),
+          html: emojiOf(it),
+          title: 'LF-' + it.id + ' ' + (it.title || '') + (isFound ? '（待认领）' : '（失者寻物）'),
+          onClick: function () {
+            document.dispatchEvent(new CustomEvent('lf:focus-item', { detail: { id: it.id } }));
+          }
+        });
       });
     });
   }
@@ -194,7 +196,7 @@
     container.addEventListener('wheel', function (e) {
       if (!ready) return;
       if (e.ctrlKey || e.metaKey) {
-        // 放行给地图：阻止页面/浏览器缩放，交给 SDK 滚轮缩放
+        // 放行给地图：阻止页面/浏览器缩放，手动按滚轮方向缩放
         e.preventDefault();
         e.stopPropagation();
         try {
@@ -270,6 +272,7 @@
       focusItem(e.detail && e.detail.id);
     });
     drawZones();
+    if (items.length) drawItems();   // init 晚于 setItems 到达时补画
   };
 
   LF.map.setItems = function (rows) {
