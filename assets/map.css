@@ -12,34 +12,62 @@
 #campus-map {
   position: relative; border-radius: 12px; overflow: hidden;
   border: 1px solid #E3EBF7; background: #F4F8FC;
+  height: 420px;                    /* 腾讯地图容器必须有固定高度 */
+  touch-action: pan-y;              /* 单指竖滑默认滚页面，捏合/拖拽由 SDK 处理 */
 }
-.campus-svg {
-  display: block; width: 100%; height: auto;
-  touch-action: none;              /* 手机上把手势留给地图，页面不跟滚 */
-  cursor: grab; user-select: none;
-}
-.campus-svg:active { cursor: grabbing; }
+#campus-map td, #campus-map .tpl-container { font-family: inherit; }
 
-/* ---- 图层元素 ---- */
-.item-mk { cursor: pointer; }
-.item-mk circle { stroke: #cdd9ea; }
-.item-mk text { pointer-events: none; }
-.item-mk.mk-lost circle {
-  stroke: #F2B24C; stroke-dasharray: 4 3;
-  fill: #FFF8EE;
+/* ---- Key 未配置兜底 ---- */
+.map-need-key {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  text-align: center; padding: 20px 28px;
 }
-.item-mk.mk-lost { opacity: .82; }
-.item-mk.mk-found circle { stroke: #9DBCE8; }
-.item-mk:hover circle,
-.item-mk.pulse circle { stroke: #2d6cdf; stroke-width: 3; }
+.map-need-key .nk-emoji { font-size: 34px; }
+.map-need-key .nk-title { font-size: 14px; font-weight: 600; color: #555; }
+.map-need-key .nk-text { font-size: 12px; color: #8B99AD; max-width: 420px; line-height: 1.7; }
+
+/* ---- 图层元素（HTML 覆盖物） ---- */
+.item-mk {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #fff; border: 2px solid #9DBCE8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; cursor: pointer; box-shadow: 0 1px 5px rgba(0,0,0,.15);
+  transition: transform .15s;
+}
+.item-mk:hover { transform: translate(-50%, -50%) scale(1.18); z-index: 5; }
+.item-mk.mk-lost {
+  border: 2px dashed #F2B24C; background: #FFF8EE; opacity: .88;
+}
+.item-mk.mk-found { border: 2px solid #9DBCE8; background: #fff; }
 .item-mk.pulse { animation: mk-pulse 1.1s ease-in-out 2; }
 @keyframes mk-pulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.35); }
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -50%) scale(1.35); z-index: 6; }
 }
-.item-mk, .pickup-mk { transform-box: fill-box; transform-origin: center; }
 
-.pickup-mk { cursor: default; }
+.pickup-mk {
+  position: absolute; transform: translate(-50%, -100%);
+  text-align: center; cursor: default; pointer-events: none; z-index: 4;
+}
+.pickup-mk .pickup-pin {
+  width: 30px; height: 30px; margin: 0 auto; border-radius: 50%;
+  background: #fff; border: 2px solid #2d6cdf;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; box-shadow: 0 1px 5px rgba(45,108,223,.3);
+}
+.pickup-mk .pickup-name {
+  margin-top: 3px; font-size: 11px; font-weight: 600; color: #2d6cdf;
+  background: rgba(255,255,255,.92); border-radius: 8px; padding: 1px 7px;
+  white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+
+.unknown-pocket {
+  position: absolute; transform: translate(-50%, -50%);
+  font-size: 11px; color: #8B99AD; padding: 4px 10px;
+  background: #EFF3F8; border: 1px dashed #D5DEEA; border-radius: 12px;
+}
 
 /* ---- 覆盖按钮 / 提示 ---- */
 .map-btn {

@@ -6,11 +6,11 @@
 <title>失物招领 · 广场</title>
 <!-- WorkBuddy 云服务 SDK（CDN 全局形式） -->
 <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
-<link rel="stylesheet" href="assets/styles.css?v=20261109a">
-<link rel="stylesheet" href="assets/contact.css?v=20261109a">
-<link rel="stylesheet" href="assets/square.css?v=20261109a">
-<link rel="stylesheet" href="assets/map.css?v=20261109a">
-<link rel="stylesheet" href="assets/mailbox.css?v=20261109a">
+<link rel="stylesheet" href="assets/styles.css?v=20261109b">
+<link rel="stylesheet" href="assets/contact.css?v=20261109b">
+<link rel="stylesheet" href="assets/square.css?v=20261109b">
+<link rel="stylesheet" href="assets/map.css?v=20261109b">
+<link rel="stylesheet" href="assets/mailbox.css?v=20261109b">
 </head>
 <body>
 
@@ -46,11 +46,11 @@
   </div>
 
   <!-- 校园地图：物品按区域落 emoji 标记，寄存点单独一层；与下方广场列表双向联动
-       （设计见 docs/PLAN-MAP-MODULE.md；底图按 assets/zones.js 的七区坐标自动生成） -->
+       （底图=腾讯地图真实校区，坐标见 assets/zones.js） -->
   <div class="card map-card">
     <div class="map-head">
       <span class="map-title">🗺️ 校园地图 · 点标记查看广场对应记录</span>
-      <span class="map-sub">示意底图 · 区域级精度 · 不展示具体位置</span>
+      <span class="map-sub">中山大学深圳校区 · 区域级精度 · 不展示具体位置</span>
     </div>
     <div id="campus-map"></div>
   </div>
@@ -109,20 +109,24 @@
 
 <!-- 模块加载顺序：config → api → ai → ui → zones → map → textsearch → app → contact → square → auth → mailbox → notify -->
 <!-- textsearch.js 在 app.js 之前：横幅文案要读 LF.textSearch.enabled() -->
-<!-- zones.js / map.js：校园地图（docs/PLAN-MAP-MODULE.md），square.js 负责挂载与联动 -->
+<!-- zones.js / map.js：校园地图（腾讯地图 GL JS，合规数据源），
+     square.js 负责挂载与联动。
+     ⚠️ Key：到 lbs.qq.com 控制台 → 应用管理 → 创建应用 → 添加 Key（勾选「JavascriptAPI GL」），
+     替换下面 gljs 链接里的 key= 占位符，并在 Key 的域名白名单里加上本站域名 -->
+<script src="https://map.qq.com/api/gljs?v=1.exp&key=请到腾讯位置服务lbs.qq.com申请key后替换此占位符"></script>
 <!-- search.js / match.js / stats.js 已随检索与统计面板一起下线，不再引入 -->
-<script src="assets/config.js?v=20261109a"></script>
-<script src="assets/api.js?v=20261109a"></script>
-<script src="assets/ai.js?v=20261109a"></script>
-<script src="assets/ui.js?v=20261109a"></script>
-<script src="assets/zones.js?v=20261109a"></script>
-<script src="assets/map.js?v=20261109a"></script>
-<script src="assets/textsearch.js?v=20261109a"></script>
-<script src="assets/app.js?v=20261109a"></script>
-<script src="assets/contact.js?v=20261109a"></script>
-<script src="assets/square.js?v=20261109a"></script>
-<script src="assets/auth.js?v=20261109a"></script>
-<script src="assets/mailbox.js?v=20261109a"></script>
-<script src="assets/notify.js?v=20261109a"></script>
+<script src="assets/config.js?v=20261109b"></script>
+<script src="assets/api.js?v=20261109b"></script>
+<script src="assets/ai.js?v=20261109b"></script>
+<script src="assets/ui.js?v=20261109b"></script>
+<script src="assets/zones.js?v=20261109b"></script>
+<script src="assets/map.js?v=20261109b"></script>
+<script src="assets/textsearch.js?v=20261109b"></script>
+<script src="assets/app.js?v=20261109b"></script>
+<script src="assets/contact.js?v=20261109b"></script>
+<script src="assets/square.js?v=20261109b"></script>
+<script src="assets/auth.js?v=20261109b"></script>
+<script src="assets/mailbox.js?v=20261109b"></script>
+<script src="assets/notify.js?v=20261109b"></script>
 </body>
 </html>
