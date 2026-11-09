@@ -1,0 +1,109 @@
+/* assets/map.css —— 校园地图模块样式（B 拥有）
+   风格对齐 styles.css / square.css：白卡片、14px 圆角、#2d6cdf 主蓝 */
+
+.map-card { padding: 14px 14px 10px; }
+.map-card .map-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.map-card .map-title { font-size: 13px; font-weight: 600; color: #444; }
+.map-card .map-sub { font-size: 12px; color: #999; margin-left: auto; }
+
+#campus-map {
+  position: relative; border-radius: 12px; overflow: hidden;
+  border: 1px solid #E3EBF7; background: #F4F8FC;
+}
+.campus-svg {
+  display: block; width: 100%; height: auto;
+  touch-action: none;              /* 手机上把手势留给地图，页面不跟滚 */
+  cursor: grab; user-select: none;
+}
+.campus-svg:active { cursor: grabbing; }
+
+/* ---- 图层元素 ---- */
+.item-mk { cursor: pointer; }
+.item-mk circle { stroke: #cdd9ea; }
+.item-mk text { pointer-events: none; }
+.item-mk.mk-lost circle {
+  stroke: #F2B24C; stroke-dasharray: 4 3;
+  fill: #FFF8EE;
+}
+.item-mk.mk-lost { opacity: .82; }
+.item-mk.mk-found circle { stroke: #9DBCE8; }
+.item-mk:hover circle,
+.item-mk.pulse circle { stroke: #2d6cdf; stroke-width: 3; }
+.item-mk.pulse { animation: mk-pulse 1.1s ease-in-out 2; }
+@keyframes mk-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.35); }
+}
+.item-mk, .pickup-mk { transform-box: fill-box; transform-origin: center; }
+
+.pickup-mk { cursor: default; }
+
+/* ---- 覆盖按钮 / 提示 ---- */
+.map-btn {
+  position: absolute; z-index: 3; margin: 0;
+  font-size: 12px; padding: 5px 10px;
+  background: rgba(255,255,255,.92); color: #2d6cdf;
+  border: 1px solid #D5E3F5; border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.map-btn:hover { background: #fff; }
+.map-btn-pickup { top: 10px; left: 10px; }
+.map-btn-pickup:not(.active) { color: #98a6bb; border-color: #E3EBF7; }
+.map-btn-reset { top: 10px; right: 10px; }
+.map-hint {
+  position: absolute; z-index: 3; left: 10px; bottom: 8px;
+  font-size: 11px; color: #8B99AD;
+  background: rgba(255,255,255,.85); border-radius: 8px; padding: 2px 8px;
+  pointer-events: none;
+}
+@media (hover: none) {
+  /* 触屏设备没有"悬停"，提示改成双指操作 */
+  .map-hint::after { content: ''; }
+}
+
+/* ---- 广场筛选 chips（PLAN §6） ---- */
+.filter-chips {
+  display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px;
+}
+.chip {
+  margin-top: 0;                    /* 顶掉全局 button 的 margin-top */
+  padding: 7px 14px; border-radius: 20px; cursor: pointer;
+  background: #fff; border: 1px solid #e0e0e0;
+  font-size: 13px; color: #555; transition: .15s;
+  min-height: 34px; line-height: 1.4;
+}
+.chip:hover { border-color: #2d6cdf; color: #2d6cdf; }
+.chip.active { background: #2d6cdf; border-color: #2d6cdf; color: #fff; font-weight: 600; }
+
+/* ---- 寄存点列表视图（chips 选「📍 寄存点」时替换广场列表） ---- */
+.spot-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.05);
+}
+.spot-item .sp-icon {
+  font-size: 22px; flex: 0 0 auto; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: #EEF4FF; border-radius: 10px;
+}
+.spot-item .sp-body { flex: 1; min-width: 0; }
+.spot-item .sp-name { font-weight: 600; font-size: 14px; }
+.spot-item .sp-meta { font-size: 12px; color: #999; margin-top: 2px; }
+.spot-item .sp-zone {
+  display: inline-block; margin-left: 6px; padding: 1px 8px;
+  border-radius: 10px; font-size: 11px;
+  background: #EAF7EE; color: #1e7a3c;
+}
+
+/* ---- 窄屏：地图按钮不遮内容 ---- */
+@media (max-width: 480px) {
+  .map-card { padding: 12px 10px 8px; }
+  .map-btn { font-size: 11px; padding: 4px 9px; }
+  .map-hint { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-mk.pulse { animation: none; }
+}

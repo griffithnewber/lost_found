@@ -87,6 +87,7 @@
       postType: r.post_type || 'lost',
       ownerId: r.owner_id || '',
       pickupLocation: r.pickup_location || '',
+      area: r.area || null,          // 七区枚举（地图用，粗粒度公开字段，见 zones.js）
       claimAt: r.claim_at || null,
       time: r.pub_time || '',
       createdAt: r.created_at
@@ -123,7 +124,8 @@
         select('*') 会直接 403。这份清单必须与
         db/migrations/2026-11-07_harden_public_columns.sql 的授权列表逐字一致。 */
   var PUBLIC_COLS = 'id,title,image,color_feature,notice,' +
-    'category,color_tone,status,post_type,owner_id,pickup_location,claim_at,pub_time,created_at';
+    'category,color_tone,status,post_type,owner_id,pickup_location,claim_at,pub_time,created_at,' +
+    'area';   // 2026-11-09 地图模块：area = 七区枚举，授权见 db/migrations/2026-11-09_map_area.sql
 
   /** 拉取全部物品（云端优先，失败回退本地缓存） */
   LF.api.listItems = async function () {
@@ -280,6 +282,24 @@
   LF.api.listPublicItems = async function () {
     var items = await LF.api.listItems();
     return items.filter(function (x) { return x.status !== 'returned'; });
+  };
+
+  /**
+   * 寄存点列表（地图图层 + 广场「📍 寄存点」视图用）。
+   * zone = 七区枚举（db/migrations/2026-11-09_map_area.sql）；非空的画上地图，
+   * 空 zone 的行（如一食堂/图书馆这类老登记点）只进列表、不上图。
+   */
+  LF.api.listLocations = async function () {
+    try {
+      var res = await getCloud().database.from('locations')
+        .select('id,name,address,open_hours,zone')
+        .order('id', { ascending: true });
+      if (res.error) throw res.error;
+      return res.data || [];
+    } catch (e) {
+      console.error('[api] listLocations failed', e);
+      return [];
+    }
   };
 
   /* ================= 文字检索：与阿寻共用同一个 SQL 函数 =================

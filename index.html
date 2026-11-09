@@ -6,10 +6,11 @@
 <title>失物招领 · 广场</title>
 <!-- WorkBuddy 云服务 SDK（CDN 全局形式） -->
 <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
-<link rel="stylesheet" href="assets/styles.css?v=20261107c">
-<link rel="stylesheet" href="assets/contact.css?v=20261107c">
-<link rel="stylesheet" href="assets/square.css?v=20261107c">
-<link rel="stylesheet" href="assets/mailbox.css?v=20261107c">
+<link rel="stylesheet" href="assets/styles.css?v=20261109a">
+<link rel="stylesheet" href="assets/contact.css?v=20261109a">
+<link rel="stylesheet" href="assets/square.css?v=20261109a">
+<link rel="stylesheet" href="assets/map.css?v=20261109a">
+<link rel="stylesheet" href="assets/mailbox.css?v=20261109a">
 </head>
 <body>
 
@@ -34,8 +35,26 @@
   <div class="tab" data-tab="mailbox">📬 信箱</div>
 </div>
 
-<!-- 广场：所有人可见的待认领失物 -->
+<!-- 广场：所有人可见的待认领失物（顶部：筛选 chips + 校园地图） -->
 <div class="panel active" id="panel-square">
+
+  <div class="filter-chips" id="filter-chips">
+    <button type="button" class="chip active" data-mode="all">全部</button>
+    <button type="button" class="chip" data-mode="found">📦 捡到的</button>
+    <button type="button" class="chip" data-mode="lost">🔍 丢了在找</button>
+    <button type="button" class="chip" data-mode="pickup">📍 寄存点</button>
+  </div>
+
+  <!-- 校园地图：物品按区域落 emoji 标记，寄存点单独一层；与下方广场列表双向联动
+       （设计见 docs/PLAN-MAP-MODULE.md；底图按 assets/zones.js 的七区坐标自动生成） -->
+  <div class="card map-card">
+    <div class="map-head">
+      <span class="map-title">🗺️ 校园地图 · 点标记查看广场对应记录</span>
+      <span class="map-sub">示意底图 · 区域级精度 · 不展示具体位置</span>
+    </div>
+    <div id="campus-map"></div>
+  </div>
+
   <div class="card">
     <label>广场 · 所有待认领的失物（只展示公开信息，隐藏细节与具体位置不展示）</label>
     <input type="text" id="square-search" placeholder="按名称或特征筛，例：耳机 / 黑色">
@@ -88,19 +107,22 @@
 
 <div id="toast-wrap"></div>
 
-<!-- 模块加载顺序：config → api → ai → ui → textsearch → app → contact → square → auth → mailbox → notify -->
+<!-- 模块加载顺序：config → api → ai → ui → zones → map → textsearch → app → contact → square → auth → mailbox → notify -->
 <!-- textsearch.js 在 app.js 之前：横幅文案要读 LF.textSearch.enabled() -->
+<!-- zones.js / map.js：校园地图（docs/PLAN-MAP-MODULE.md），square.js 负责挂载与联动 -->
 <!-- search.js / match.js / stats.js 已随检索与统计面板一起下线，不再引入 -->
-<script src="assets/config.js?v=20261107c"></script>
-<script src="assets/api.js?v=20261107c"></script>
-<script src="assets/ai.js?v=20261107c"></script>
-<script src="assets/ui.js?v=20261107c"></script>
-<script src="assets/textsearch.js?v=20261107c"></script>
-<script src="assets/app.js?v=20261107c"></script>
-<script src="assets/contact.js?v=20261107c"></script>
-<script src="assets/square.js?v=20261107c"></script>
-<script src="assets/auth.js?v=20261107c"></script>
-<script src="assets/mailbox.js?v=20261107c"></script>
-<script src="assets/notify.js?v=20261107c"></script>
+<script src="assets/config.js?v=20261109a"></script>
+<script src="assets/api.js?v=20261109a"></script>
+<script src="assets/ai.js?v=20261109a"></script>
+<script src="assets/ui.js?v=20261109a"></script>
+<script src="assets/zones.js?v=20261109a"></script>
+<script src="assets/map.js?v=20261109a"></script>
+<script src="assets/textsearch.js?v=20261109a"></script>
+<script src="assets/app.js?v=20261109a"></script>
+<script src="assets/contact.js?v=20261109a"></script>
+<script src="assets/square.js?v=20261109a"></script>
+<script src="assets/auth.js?v=20261109a"></script>
+<script src="assets/mailbox.js?v=20261109a"></script>
+<script src="assets/notify.js?v=20261109a"></script>
 </body>
 </html>

@@ -19,6 +19,8 @@
 
   var all = [];        // 云端拉回来的全部可见物品
   var keyword = '';    // 当前筛选词
+  var filterMode = 'all';   // chips 筛选：'all' | 'found' | 'lost' | 'pickup'（PLAN-MAP §6）
+  var locationsList = [];   // locations 表：寄存点视图 + 地图图层（拉一次，lf:changed 后重拉）
   // 已找回提示卡的「粘性状态」：轮询重绘会把 DOM 清掉，靠这个在 draw() 后补回来
   var returnedSticky = null;
 
@@ -39,11 +41,33 @@
   }
 
   function match(it) {
+    if (filterMode === 'found' && it.postType !== 'found') return false;
+    if (filterMode === 'lost' && it.postType !== 'lost') return false;
     if (!keyword) return true;
     var cat = LF.ui.categoryMeta(it.category);
     // 只按「用户自己的话 + 类别」筛，绝不使用 AI 描述（AI 只在后台算分，不上前台）
     var hay = [it.title, it.notice, cat.label].filter(Boolean).join(' ').toLowerCase();
     return hay.indexOf(keyword.toLowerCase()) >= 0;
+  }
+
+  /** 寄存点列表视图：chips 选「📍 寄存点」时替换广场列表（地图只亮寄存点层） */
+  function drawSpots(box, countEl) {
+    if (countEl) countEl.textContent = '共 ' + locationsList.length + ' 个寄存点';
+    if (!locationsList.length) {
+      box.innerHTML = '<div class="empty">还没有寄存点数据</div>';
+      return;
+    }
+    box.innerHTML = locationsList.map(function (l) {
+      var z = l.zone && window.LF.zones ? LF.zones.get(l.zone) : null;
+      return '<div class="spot-item">' +
+        '<div class="sp-icon">📍</div>' +
+        '<div class="sp-body">' +
+        '<div class="sp-name">' + LF.ui.esc(l.name) +
+        (z ? ' <span class="sp-zone">' + LF.ui.esc(z.label) + '</span>' : '') + '</div>' +
+        '<div class="sp-meta">' + LF.ui.esc(l.address || '') +
+        (l.open_hours ? ' · 开放：' + LF.ui.esc(l.open_hours) : '') + '</div>' +
+        '</div></div>';
+    }).join('');
   }
 
   function draw() {
@@ -58,6 +82,17 @@
         : '共 ' + all.length + ' 件待认领';
     }
 
+    // 地图同步：地图与列表吃同一份过滤结果（PLAN-MAP §5.5），别各滤各的
+    if (window.LF.map && LF.map.setItems) {
+      LF.map.setItems(filterMode === 'pickup' ? [] : rows);
+    }
+
+    if (filterMode === 'pickup') {
+      drawSpots(box, countEl);
+      paintReturnedCard(false);
+      return;
+    }
+
     if (!rows.length) {
       box.innerHTML = '<div class="empty">' +
         (all.length ? '没有匹配的物品，换个词试试' : '广场上还没有失物') +
@@ -69,6 +104,7 @@
     box.innerHTML = rows.map(function (it) {
       var cat = LF.ui.categoryMeta(it.category);
       var isFound = it.postType === 'found';
+      var zone = it.area && window.LF.zones ? LF.zones.get(it.area) : null;
       var hint = isFound
         ? '🔒 具体特征待核验后由拾者告知'
         : '🔒 隐藏细节与具体位置需通过核验后由发布者告知';
@@ -78,7 +114,8 @@
         '<div class="item-body">' +
         '<div class="item-title">' + LF.ui.esc(LF.ui.displayTitle(it)) + statusBadge(it) + '</div>' +
         '<div class="item-meta">' + LF.ui.esc(it.time || '') +
-        (isFound && cat.label ? ' · ' + cat.emoji + ' ' + LF.ui.esc(cat.label) : '') + '</div>' +
+        (isFound && cat.label ? ' · ' + cat.emoji + ' ' + LF.ui.esc(cat.label) : '') +
+        (zone ? ' · 🗺 ' + LF.ui.esc(zone.label) : '') + '</div>' +
         LF.ui.noticeHTML(it) +
         pickupHTML(it) +
         '<div class="item-desc muted">' + hint + '</div>' +
@@ -381,7 +418,9 @@
   /** 判断拉回来的列表和当前渲染的是否一致（只比 id + status，够用且便宜） */
   var lastSig = '';
   function sameData(rows) {
-    var sig = rows.map(function (x) { return x.id + ':' + x.status + ':' + (x.image ? 1 : 0); }).join('|');
+    var sig = rows.map(function (x) {
+      return x.id + ':' + x.status + ':' + (x.image ? 1 : 0) + ':' + (x.area || '');
+    }).join('|');
     if (sig === lastSig) return true;
     lastSig = sig;
     return false;
@@ -409,6 +448,17 @@
 
 
   function bind() {
+    // 筛选 chips（PLAN-MAP §6）：全部 / 捡到的 / 丢了在找 / 寄存点，与搜索框 AND
+    Array.prototype.forEach.call(document.querySelectorAll('.filter-chips .chip'), function (c) {
+      c.addEventListener('click', function () {
+        filterMode = c.getAttribute('data-mode') || 'all';
+        Array.prototype.forEach.call(document.querySelectorAll('.filter-chips .chip'), function (x) {
+          x.classList.toggle('active', x === c);
+        });
+        draw();
+      });
+    });
+
     var input = el('square-search');
     if (input) {
       var timer = null;
@@ -488,11 +538,33 @@
       var panel = el('panel-square');
       if (panel && panel.classList.contains('active')) LF.square.render({ silent: true });
     });
+
+    /* ---- 地图 ⇄ 广场双向联动（PLAN-MAP §5.5） ---- */
+    // 地图标记 → 广场卡片：滚动到位并闪两下（复用深链高亮那套）
+    document.addEventListener('lf:focus-item', function (e) {
+      if (e.detail && e.detail.id) waitAndFocus(e.detail.id, 0, false);
+    });
+    // 广场卡片 → 地图标记：点卡片空白处（非按钮/链接）让标记脉冲并平移到视野中心
+    document.addEventListener('click', function (e) {
+      var card = e.target.closest('.square-item');
+      if (!card || e.target.closest('button') || e.target.closest('a')) return;
+      var m = /^item-(\d+)$/.exec(card.id || '');
+      if (m) document.dispatchEvent(new CustomEvent('lf:map-focus', { detail: { id: Number(m[1]) } }));
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     bind();
     startPolling();
+
+    // 挂载校园地图 + 拉一次寄存点（ locations 表；失败不阻塞广场）
+    if (window.LF.map && el('campus-map')) LF.map.init(el('campus-map'));
+    LF.api.listLocations().then(function (locs) {
+      locationsList = locs || [];
+      if (window.LF.map && LF.map.setLocations) LF.map.setLocations(locationsList);
+      if (filterMode === 'pickup') draw();   // 若用户停在寄存点视图，补渲染
+    });
+
     // 首页就预热一次，切过去不空
     LF.square.render().then(function () {
       setTimeout(focusFromHash, 200);   // 等首屏渲染完再处理 #item-<id> 直达

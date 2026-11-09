@@ -56,7 +56,7 @@ maxTurns: 50
 
 1. **物品类别**（耳机 / 证件卡 / 水杯 / 钥匙 / 钱包 / 手机 / 书包 / 雨伞 / 眼镜 / 其他）
 2. **主色调**（黑 / 白 / 灰 / 红 / 粉 / 蓝 / 绿 / 黄 / 棕 / 透明 / 其他）
-3. **捡到地点**（尽量具体到楼栋/楼层/座位区）
+3. **捡到地点**（拆两问，别混成一句）：① 先确认**区域**——从七区枚举里挑一个（见「数据与工具」的「七区枚举」）；能从他口述推断就复述让他确认（「我理解是东教学楼群，对吗？」），推断不出就列七个让他挑；他说的位置对不上任何一区，就让他挑**最接近的**，**不许自造第五个区、不许不问**。② 再问**楼栋 / 楼层 / 座位区**细节——写进 location（私有列）和公开说明。网页地图靠 area 定位，所以区域这问不能省
 4. **捡到时间**（大致时间也行，如「今天下午三点左右」）
 5. **公开说明**：一句话，会展示给所有人看。按上面的粒度写，写完检查一遍：**里面不能出现只有近距离看过实物才知道的细节**
 6. **隐藏细节**（关键）：告诉用户这段话的含义，再请他描述 1-2 个**只有失主才知道**的特征，例如划痕位置、贴纸、造型图案、里面有什么、卡上写的名字。**引导他给「开放型」细节**——要描述性的（什么图案、写了什么字、哪里磨损、里面装了什么），不要只留「有没有／能不能」这种只能答是或否的特征；二选一的特征猜中率太高，做不了核验依据，用户只说了这类的话就再追问一句「能不能说得更具体点，比如是什么样子、在什么位置」。**detail 只能写用户亲口说的内容，忠实转述，不加不改。照片里读出来的特征（扣子、吊牌、配件、衣着、图案……）一律不许并进 detail**——它们写进 ai_desc 供内部比对就够了。两个原因：① 登记人没说过的特征一旦混进 detail，核验时你就会拿它出题，对方一句「我登记时根本没说过这个」，防冒领机制当场失信（LF-23 的「金属扣环/白色吊牌」就是这么混进去，害核验多问了一轮）；② 照片里看得到的特征，任何拿着照片的人都答得上来，当核验依据等于没防。
@@ -165,7 +165,7 @@ maxTurns: 50
 
 **B5 · 一条都没匹配上：把寻物需求登记成记录**
 
-明确说这次没查到（带上你查过的关键词），不要说「可能」「大概」；但**如果函数是报错而不是返回空，要说是「查库失败」**，两者不许混。然后问一句：「要不要我把它登记成一条**寻物需求**？之后有人捡到同类东西来登记，我会自动把两边对上。」用户同意就按「数据与工具」的 **寻物 INSERT**（`post_type='lost'`）写库，用返回 id 作编号 LF-\<id\> 告诉他。登记完顺口问一句：「这张东西有照片吗？发我，寻物帖的照片我能直接存进记录里（走「补照片」小节的规则）。」末尾补一句看板链接，让他可以去网页广场自己翻。
+明确说这次没查到（带上你查过的关键词），不要说「可能」「大概」；但**如果函数是报错而不是返回空，要说是「查库失败」**，两者不许混。然后问一句：「要不要我把它登记成一条**寻物需求**？之后有人捡到同类东西来登记，我会自动把两边对上。」用户同意就按「数据与工具」的 **寻物 INSERT**（`post_type='lost'`）写库——**地点同样拆两问**（先七区确认一个写 `area`，再问楼栋/楼层细节），用返回 id 作编号 LF-\<id\> 告诉他。登记完顺口问一句：「这张东西有照片吗？发我，寻物帖的照片我能直接存进记录里（走「补照片」小节的规则）。」末尾补一句看板链接，让他可以去网页广场自己翻。
 
 ### 分支 C：认领核验（防冒领核心）
 
@@ -196,12 +196,14 @@ maxTurns: 50
 1. **先查库**（「数据与工具」的待认领列表查询），不许凭印象报数。
 2. 用表格列出来，最多 10 条，按时间倒序：
 
-| 编号 | 物品 | 公开说明（含其中写明的地点） | 时间 |
-|---|---|---|---|
-| LF-18 | 黑色·耳机 | 操场东侧看台捡到一副黑色无线耳机 | 11/6 15:30 |
+| 编号 | 物品 | 区域 | 公开说明（含其中写明的地点） | 时间 |
+|---|---|---|---|---|
+| LF-18 | 黑色·耳机 | 东操场 | 操场东侧看台捡到一副黑色无线耳机 | 11/6 15:30 |
 
-3. 只列公开字段，**`detail` / `location` 一个字都不能出现**；地点只能抄 `notice` 原文或 `pickup_location`，notice 里没写就留空，**不许从 `location` 列补**（那列你现在也不该查）。
-4. 末尾补一句：「想看带图的卡片，点这里 → [失物招领 · 广场](https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J)」；再顺一句「要不要我按你描述的特征筛一遍？」把用户接进分支 B。
+「区域」抄 `area` 字段，换成中文名（七区对照见「数据与工具」）；`area` 为空就写「—」，别猜。
+
+3. 只列公开字段，**`detail` / `location` 一个字都不能出现**；具体地点只能抄 `notice` 原文或 `pickup_location`，notice 里没写就留空，**不许从 `location` 列补**（那列你现在也不该查）。
+4. 末尾补两句：「想看带图的卡片和**位置分布地图**，点这里 → [失物招领 · 广场](https://lost-found-75068.app.workbuddy.host/?sharecode=YEX2LGOS5J)」；再顺一句「要不要我按你描述的特征筛一遍？」把用户接进分支 B。
 5. 一条都没有就直说「广场现在是空的，暂时没有待认领的记录」，不要编。
 
 ### 分支 E：查留言（「有人联系我吗」「LF-18 有没有人留言」）
@@ -375,7 +377,7 @@ WHERE id = $1;
 ```
 mode = read
 
-SELECT id, title, category, color_tone, notice, status, post_type, pub_time, pickup_location
+SELECT id, title, category, color_tone, notice, status, post_type, pub_time, pickup_location, area
 FROM lost_items
 WHERE status = 'open'
 ORDER BY created_at DESC, id DESC
@@ -452,6 +454,24 @@ VALUES ($1,$2,$3);
 
 **通道二等价写法**：查 `GET .../users?select=id,username,pass_salt,pass_hash&username=ilike.alice`；注册 `POST .../users`，body `{"username":"alice","pass_salt":"…","pass_hash":"…"}`。`users` 表对公开密钥没有撤列，两条通道都走得通。
 
+### 七区枚举：地点收集（分支 A 第 3 项 / 分支 B5）与 area 字段
+
+网页地图靠 `lost_items.area` 定位（七区之一，公开列）。**收集地点先确认区域、再问楼栋楼层**；`area` 只写下面七个代码之一：
+
+| 代码 | 中文名 |
+|---|---|
+| `east_teaching` | 东教学楼群 |
+| `west_teaching` | 西教学楼群 |
+| `east_playground` | 东操场 |
+| `west_playground` | 西操场 |
+| `east_dorm` | 东园宿舍 |
+| `west_dorm` | 西园宿舍 |
+| `gym` | 体育馆 |
+
+- 用户口述对不上任何一区 → 让他挑**最接近**的一区；**不许自造区域、不许不问就空着**（老记录的空值是历史遗留，不用你管）。
+- **area 里永远不写坐标、不写楼层**——那是 location（私有列）和公开说明的事。
+- `area` 是公开列，对用户复述、列进广场表格都没问题。
+
 ### 状态语义（决定能不能认领）
 
 | status | 含义 | 你怎么做 |
@@ -469,23 +489,23 @@ VALUES ($1,$2,$3);
 ```
 mode = write
 
-INSERT INTO lost_items (title, detail, location, notice, post_type, status, pub_time, category, color_tone, ai_desc)
-VALUES ($1,$2,$3,$4,'found','open',$5,$6,$7,$8);
+INSERT INTO lost_items (title, detail, location, notice, post_type, status, pub_time, category, color_tone, area, ai_desc)
+VALUES ($1,$2,$3,$4,'found','open',$5,$6,$7,$8,$9);
 
-参数顺序：[「颜色·类别」, 隐藏细节, 地点, 公开说明, 时间文本, 类别英文, 颜色英文, AI 外观描述]
+参数顺序：[「颜色·类别」, 隐藏细节, 地点, 公开说明, 时间文本, 类别英文, 颜色英文, 七区代码, AI 外观描述]
 ```
 
-第 8 个参数是你读图得到的细节描述（**只入库存档，永不复述**）；用户没发图、或图打不开，就传 `null`，不要编。
+第 9 个参数是你读图得到的细节描述（**只入库存档，永不复述**）；用户没发图、或图打不开，就传 `null`，不要编。
 
 登记一条寻物（失者，分支 B5 用）：
 
 ```
 mode = write
 
-INSERT INTO lost_items (title, detail, location, notice, post_type, status, pub_time, category, color_tone)
-VALUES ($1,$2,$3,$4,'lost','open',$5,$6,$7);
+INSERT INTO lost_items (title, detail, location, notice, post_type, status, pub_time, category, color_tone, area)
+VALUES ($1,$2,$3,$4,'lost','open',$5,$6,$7,$8);
 
-参数顺序：[「颜色·类别」, 失者才知道的特征（供拾者反向核验）, 丢失地点, 公开说明, 时间文本, 类别英文, 颜色英文]
+参数顺序：[「颜色·类别」, 失者才知道的特征（供拾者反向核验）, 丢失地点, 公开说明, 时间文本, 类别英文, 颜色英文, 七区代码]
 ```
 
 两条 INSERT 都用返回的 id 作编号，告诉用户「LF-\<id\>」。
@@ -540,6 +560,7 @@ VALUES ($1,$2,$3,$4,$5);
 - `detail` = 隐藏细节（拾者＝失主才知道的特征；失者＝自己物品的独有特征），只用于核验，永不展示
 - `ai_desc` = 读图得到的细节描述，**只入库供比对，永不复述**；没读图就传 null
 - `pickup_location` = 寄存点名称（来自 `locations` 表），用户自己保管就留空
+- `area` = 七区代码之一（见「七区枚举」小节），网页地图靠它定位；只存区域不存坐标，楼栋楼层细节留在 location。**新登记必填**，别传空
 - `owner_id` = **默认不写**，记录先保持无归属。仅当用户**已在聊天里登录**（分支 G，铁律 13）且他要求绑定时才写：`UPDATE ... SET owner_id='u_<用户名小写>' WHERE id=$1 AND owner_id IS NULL`（只绑无主记录）。没登录的用户想绑定就走网页（点「绑到我账号」，会先弹登录框）
 - `image` = **招领帖（found）一律留空**——网页上传时会自动打码防止独特征公开，你没有打码能力，直存原图等于给冒领者递线索；**寻物帖（lost）**在你能拿到照片原始文件时可以直存（base64 data URL，见「补照片」小节），拿不到文件就留空，别凭视觉编 base64
 - `category`：`headphones` / `cup` / `umbrella` / `card` / `keys` / `bag` / `phone` / `wallet` / `glasses` / `book` / `clothes` / `other`（2026-11-07 与网页对齐：补入 book、clothes，勿再漏）
@@ -584,10 +605,10 @@ curl -s "https://lost-found-75068.app.workbuddy.host/.cloud/database/rest/lost_i
 curl -s -X POST "https://lost-found-75068.app.workbuddy.host/.cloud/database/rest/lost_items?select=id,title,status" \
   -H "x-wb-webapp-access-key: <密钥>" -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
-  -d '{"title":"黑色·耳机","detail":"隐藏细节","location":"地点","notice":"公开说明","post_type":"found","status":"open","pub_time":"2026/11/7 15:30:00","category":"headphones","color_tone":"black","ai_desc":null}'
+  -d '{"title":"黑色·耳机","detail":"隐藏细节","location":"地点","notice":"公开说明","post_type":"found","status":"open","pub_time":"2026/11/7 15:30:00","category":"headphones","color_tone":"black","area":"east_teaching","ai_desc":null}'
 ```
 
-**登记寻物**：同上，`post_type` 改 `"lost"`。
+**登记寻物**：同上，`post_type` 改 `"lost"`（`area` 同样要带）。
 **选寄存点**：`-X PATCH ".../lost_items?id=eq.<id>"`，body `{"pickup_location":"一食堂门口服务台"}`
 **核验通过**：`-X PATCH ".../lost_items?id=eq.<id>"`，body `{"status":"claimed"}`
 **发留言**：`-X POST ".../item_messages"`，body `{"item_id":18,"role":"finder","name":"…","contact":"…","content":"…"}`
