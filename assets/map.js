@@ -13,7 +13,8 @@
  *   寄存点层（locations 表 zone 非空的行）：📍 画在区中心锚点 + 名称标签；
  *   物品层（lost_items.area 对应的物品 emoji）：从锚点向外环形散开（米级
  *   半径，见 zones.spread）——寄存点居中、物品绕圈，两层天然不重叠。
- * area 为空的老记录画进「未定位」收纳点，不丢数据。
+ * area 为空的记录不上图（用户定稿：没有真实位置不占假位置），
+ * 数量提示在地图副标题。寄存点可点击，弹信息卡（名称/地址/开放时间）。
  *
  * 交互：电脑 Ctrl+滚轮缩放（capture 阶段拦截 SDK 普通滚轮，页面照常滚）、
  * 手机双指捏合/拖拽/双击由 SDK 原生支持、复位按钮回初始视野。
@@ -34,7 +35,6 @@
   var map = null;                   // TMap.Map 实例
   var itemOverlays = {};            // id -> overlay（物品）
   var locOverlays = [];             // 寄存点 overlays
-  var pocketOverlay = null;         // 「未定位」收纳点
   var items = [];
   var locations = [];
   var showPickup = true;
@@ -107,18 +107,8 @@
   function drawZones() {
     locOverlays.forEach(destroyOverlay);
     locOverlays = [];
-    pocketOverlay && destroyOverlay(pocketOverlay);
-    pocketOverlay = null;
+    hideLocPopup();
     if (!map || !ready) return;
-
-    // 「未定位」收纳点常驻（有 area 为空的记录才有意义，但画上无妨）
-    pocketOverlay = new LfOverlay({
-      map: map,
-      position: latLng(LF.zones.unknownPocket),
-      cls: 'unknown-pocket',
-      html: '未定位',
-      title: '登记时没有说清区域的旧记录都收在这里'
-    });
 
     if (showPickup) {
       locations.filter(function (l) { return l.zone && LF.zones.get(l.zone); })
@@ -131,10 +121,38 @@
             anchor: 'bottom',
             html: '<div class="pickup-pin">📍</div>' +
                   '<div class="pickup-name">' + z.label + '</div>',
-            title: l.name + '（' + (l.address || '') + ' ' + (l.open_hours || '') + '）'
+            title: l.name + '（' + (l.address || '') + ' ' + (l.open_hours || '') + '）',
+            onClick: function () { showLocPopup(l, z); }
           }));
         });
     }
+  }
+
+  /* 寄存点信息卡（点击寄存点弹出；同一张卡复用，点 × 或点别处收起） */
+  function showLocPopup(l, z) {
+    var pop = container.querySelector('.loc-popup');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.className = 'loc-popup';
+      container.appendChild(pop);
+    }
+    pop.innerHTML =
+      '<button type="button" class="loc-close" aria-label="关闭">✕</button>' +
+      '<div class="loc-title">📍 ' + LF.ui.esc(l.name || z.label) + '</div>' +
+      '<div class="loc-row">' + LF.ui.esc(z.label) + ' · 区域寄存点</div>' +
+      (l.address ? '<div class="loc-row">🏷️ ' + LF.ui.esc(l.address) + '</div>' : '') +
+      (l.open_hours ? '<div class="loc-row">🕘 ' + LF.ui.esc(l.open_hours) + '</div>' : '') +
+      '<div class="loc-tip">捡到东西交给这里保管，登记时选「放寄存点」即可</div>';
+    pop.classList.add('show');
+    pop.querySelector('.loc-close').addEventListener('click', function (e) {
+      e.stopPropagation();
+      hideLocPopup();
+    });
+  }
+  function hideLocPopup() {
+    if (!container) return;
+    var pop = container.querySelector('.loc-popup');
+    if (pop) pop.classList.remove('show');
   }
 
   function drawItems() {
@@ -144,16 +162,28 @@
     });
     if (!map || !ready) return;
 
-    // 按区分组，同一区的物品从锚点向外环形散开；空 area 进「未定位」
+    // 按区分组，同一区的物品从锚点向外环形散开；area 为空的**不上图**（用户定稿：
+    // 没有真实位置不占假位置），数量进副标题提示
+    var unlocated = 0;
     var groups = {};
     items.forEach(function (it) {
-      var key = (it.area && LF.zones.get(it.area)) ? it.area : '__unknown';
-      (groups[key] = groups[key] || []).push(it);
+      if (it.area && LF.zones.get(it.area)) {
+        (groups[it.area] = groups[it.area] || []).push(it);
+      } else {
+        unlocated++;
+      }
     });
+    var note = document.getElementById('map-unlocated');
+    if (note) {
+      note.textContent = unlocated > 0
+        ? unlocated + ' 条未标注区域不上图'
+        : '';
+    }
 
     var sp = LF.zones.spread || { ring: 38, gap: 12, maxRing: 3 };
     Object.keys(groups).forEach(function (code) {
-      var anchor = code === '__unknown' ? LF.zones.unknownPocket : LF.zones.get(code);
+      var anchor = LF.zones.get(code);
+      if (!anchor) return;
       var rows = groups[code];
       var n = rows.length;
       rows.forEach(function (it, i) {
@@ -236,7 +266,7 @@
         minZoom: LF.zones.minZoom,
         maxZoom: LF.zones.maxZoom,
         viewMode: '2D',
-        showControl: true,
+        showControl: false,          // 关掉腾讯默认控件（罗盘/缩放叠在我们的按钮上），只用自绘按钮
         draggable: true,
         doubleClickZoom: true
       });

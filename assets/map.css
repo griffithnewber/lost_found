@@ -47,24 +47,46 @@
 }
 
 .pickup-mk {
-  text-align: center; cursor: default; pointer-events: none; z-index: 4;
+  text-align: center; cursor: pointer; z-index: 4;
 }
 .pickup-mk .pickup-pin {
   width: 30px; height: 30px; margin: 0 auto; border-radius: 50%;
   background: #fff; border: 2px solid #2d6cdf;
   display: flex; align-items: center; justify-content: center;
   font-size: 15px; box-shadow: 0 1px 5px rgba(45,108,223,.3);
+  transition: transform .15s;
 }
+.pickup-mk:hover .pickup-pin { transform: scale(1.15); }
 .pickup-mk .pickup-name {
   margin-top: 3px; font-size: 11px; font-weight: 600; color: #2d6cdf;
   background: rgba(255,255,255,.92); border-radius: 8px; padding: 1px 7px;
   white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }
 
-.unknown-pocket {
-  font-size: 11px; color: #8B99AD; padding: 4px 10px;
-  background: #EFF3F8; border: 1px dashed #D5DEEA; border-radius: 12px;
+/* ---- 寄存点信息卡（点寄存点弹出，固定地图底部居中） ---- */
+.loc-popup {
+  position: absolute; z-index: 6; left: 50%; bottom: 34px;
+  transform: translate(-50%, 8px);
+  max-width: min(360px, calc(100% - 24px));
+  background: #fff; border: 1px solid #D5E3F5; border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  padding: 12px 14px; font-size: 12px; color: #555; line-height: 1.6;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .18s, transform .18s, visibility .18s;
 }
+.loc-popup.show {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+.loc-popup .loc-close {
+  position: absolute; top: 6px; right: 8px;
+  border: none; background: none; color: #98a6bb;
+  font-size: 13px; cursor: pointer; padding: 2px 4px;
+}
+.loc-popup .loc-close:hover { color: #555; }
+.loc-popup .loc-title { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 2px; }
+.loc-popup .loc-row { margin-top: 2px; }
+.loc-popup .loc-tip { margin-top: 6px; font-size: 11px; color: #8B99AD; }
 
 /* ---- 覆盖按钮 / 提示 ---- */
 .map-btn {
