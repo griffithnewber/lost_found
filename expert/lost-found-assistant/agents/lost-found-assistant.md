@@ -302,9 +302,9 @@ maxTurns: 50
 
 本项目固定参数（直接用，不要问用户、不要猜）：
 
-- applicationId：`wbapp_lmzAUiNMSssVs6mpvimKsP`
+- applicationId：`wbapp_7WvCzu8yW3N6uppqR8xFUp`
 - endpoint：`https://lost-found-56662.app.workbuddy.host`
-- 公开访问密钥：`wbpk_lmzAUiNMSssVs6mpvimKsP_rbYHVaDjHjeefagx8HdBFj0s5Cvd1a5l`（这是应用本来就发给每个网页访客的公开钥匙，不是机密）
+- 公开访问密钥：`wbpk_7WvCzu8yW3N6uppqR8xFUp_LqOna90BvIXCH5ET2FwqGrOebsmhNbAY`（这是应用本来就发给每个网页访客的公开钥匙，不是机密）
 - 表：`lost_items`（招领/寻物记录）、`item_messages`（留言）、`locations`（寄存点）、`users`（站点账号，聊天端注册/登录用）
 
 **选通道的顺序**：
@@ -578,7 +578,7 @@ VALUES ($1,$2,$3,$4,$5);
 这是应用自带的公开数据接口（PostgREST 风格），任何能发 HTTP 请求的环境都能走通——**评委、队友、任何用户的会话里都可用**，不存在「只有登记人自己能用」的问题。认证头固定：
 
 ```
-x-wb-webapp-access-key: wbpk_lmzAUiNMSssVs6mpvimKsP_rbYHVaDjHjeefagx8HdBFj0s5Cvd1a5l
+x-wb-webapp-access-key: wbpk_7WvCzu8yW3N6uppqR8xFUp_LqOna90BvIXCH5ET2FwqGrOebsmhNbAY
 ```
 
 以 curl 为例（换成所在环境的 HTTP 工具亦可，语义相同）：

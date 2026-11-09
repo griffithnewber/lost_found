@@ -8,7 +8,12 @@ window.LF = window.LF || {};
 LF.config = {
   endpoint: 'https://lost-found-56662.app.workbuddy.host',
   oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
-  publishableKey: 'wbpk_lmzAUiNMSssVs6mpvimKsP_rbYHVaDjHjeefagx8HdBFj0s5Cvd1a5l',
+  /* 2026-11-09 换密钥：这把密钥绑定的是「当前这个已发布应用」(wbapp_7WvCzu…，域名
+     lost-found-56662)。旧密钥绑在旧应用 lost-found-75068 上，服务端按 Origin 精确校验，
+     于是网页在 56662 下每个请求都被 403 access_denied（"request origin is not allowed"），
+     广场永远显示「云端同步失败」——而 curl / Node 不带 Origin 头测试却全通，所以一直没看出来。
+     以后再遇到「网页连不上、命令行却正常」，第一件事就是带 Origin 头复测。 */
+  publishableKey: 'wbpk_7WvCzu8yW3N6uppqR8xFUp_LqOna90BvIXCH5ET2FwqGrOebsmhNbAY',
 
   // 模型约定（2026-11-05 实测）：
   //   glm-5.3-flash 原生多模态：文本与看图都可用，content 通道稳定，倍率低（x0.08）；

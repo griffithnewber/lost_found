@@ -27,6 +27,15 @@
 
   function getCloud() {
     if (!cloud) {
+      /* SDK 在 index.html 里加载（现已本地托管于 assets/vendor）。
+         它一旦没加载出来（文件丢失、被插件拦截、旧缓存），window.WorkBuddyCloud
+         就是 undefined，这里直接抛 ReferenceError——上层只会看到「云端同步失败」，
+         根本看不出是「SDK 没加载」还是「库挂了」。所以显式判断并打标记。 */
+      if (!window.WorkBuddyCloud || typeof window.WorkBuddyCloud.createWorkBuddyCloud !== 'function') {
+        var e = new Error('云 SDK 未加载（脚本文件没取到或被拦截）');
+        e.code = 'sdk_missing';
+        throw e;
+      }
       cloud = window.WorkBuddyCloud.createWorkBuddyCloud({
         endpoint: LF.config.endpoint,
         oauthRelayBaseUrl: LF.config.oauthRelayBaseUrl,
@@ -118,6 +127,61 @@
   LF.api.getCloud = getCloud;
   LF.api.loadCache = loadCache;
 
+  /* ================= 直连兜底通道 =================
+   *
+   * 为什么需要：网页首屏数据全靠 SDK，而 SDK 是 jsdelivr 上的外链。
+   * 校园网 / 公司网 / 装了拦截插件的浏览器都可能拿不到这份 JS，于是整页
+   * 只显示「云端同步失败」，用户以为是最新发布把数据搞坏了。
+   *
+   * 但网关本身是通的：同一个域名下 `/.cloud/database/rest/<表>` 带上
+   * `x-wb-webapp-access-key` 就能读（智能体用的通道二也是这条路，已经实测）。
+   * 所以 SDK 挂了不等于库挂了——这里补一条同源的直连路径，能读就照常显示，
+   * 只是状态条标「直连」，让人一眼知道走的是备用通道。
+   *
+   * 只做只读（广场就是要读）；写操作仍然走 SDK，因为写入的身份语义
+   * 由 SDK 负责，备一条自己的写入路径会让两边权限判断分叉。
+   */
+  function restUrl(pathAndQuery) {
+    var base = String(LF.config.endpoint || '').replace(/\/$/, '');
+    return base + '/.cloud/database/rest' + pathAndQuery;
+  }
+
+  function restGet(pathAndQuery, timeoutMs) {
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs || 15000) : null;
+    return fetch(restUrl(pathAndQuery), {
+      headers: { 'x-wb-webapp-access-key': LF.config.publishableKey },
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (res) {
+      if (timer) clearTimeout(timer);
+      return res.text().then(function (text) {
+        if (!res.ok) {
+          var e = new Error('HTTP ' + res.status + ' ' + String(text).slice(0, 160));
+          e.code = 'http_' + res.status;
+          throw e;
+        }
+        try { return JSON.parse(text); }
+        catch (err) {
+          var e2 = new Error('返回体不是 JSON：' + String(text).slice(0, 120));
+          e2.code = 'bad_json';
+          throw e2;
+        }
+      });
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      var e3 = new Error(err && err.name === 'AbortError' ? '直连超时' : ('直连失败：' + (err && err.message || err)));
+      e3.code = 'network';
+      throw e3;
+    });
+  }
+
+  /** 把任意错误压成一行可读文本（状态条的 title 用，别只留在 console 里） */
+  function why(e) {
+    if (!e) return '未知';
+    var code = e.code ? e.code + ' · ' : '';
+    return code + (e.message || e.error_description || String(e)).slice(0, 120);
+  }
+
   /* 显式列出字段而不是偷懒用 '*'：两个原因 ——
      1) pickup_location 是后加的列，明确列出来才能保证广场一定拿到寄存点；
      2) 2026-11-07 起 detail / location / ai_desc / ai_tags 对 anon 已撤 SELECT，
@@ -127,23 +191,55 @@
     'category,color_tone,status,post_type,owner_id,pickup_location,claim_at,pub_time,created_at,' +
     'area';   // 2026-11-09 地图模块：area = 七区枚举，授权见 db/migrations/2026-11-09_map_area.sql
 
-  /** 拉取全部物品（云端优先，失败回退本地缓存） */
+  /** 拉取全部物品（云端优先，失败回退本地缓存）
+   *
+   * 三条路按顺序走，谁先成功用谁：
+   *   ① SDK（正常路径，写操作也靠它）
+   *   ② 直连 REST（SDK 被 CDN 拦掉时兜底，只读）
+   *   ③ 本地缓存（前两条都断，页面至少还有上次看到的内容）
+   * 失败原因不再吞掉：`LF.api.lastSync` 留着给排查用，
+   * 状态条的 title 也会写清楚是 SDK 没加载、还是认证/网络的问题。
+   */
   LF.api.listItems = async function () {
+    var items = null;
+    var sdkErr = null;
+
     try {
       var res = await getCloud().database.from(LF.config.table)
         .select(PUBLIC_COLS)
         .order('created_at', { ascending: false })
         .limit(1000);
       if (res.error) throw res.error;
-      var items = (res.data || []).map(rowToItem);
-      saveCache(items);
-      LF.api.setStatus('☁️ 已连接云端', true);
-      return items;
+      items = (res.data || []).map(rowToItem);
     } catch (e) {
-      console.error('[api] listItems failed', e);
-      LF.api.setStatus('⚠️ 云端同步失败，使用本地缓存', false);
-      return loadCache();
+      sdkErr = e;
+      console.warn('[api] listItems: SDK 通道失败，改走直连 REST ——', why(e));
     }
+
+    if (!items) {
+      try {
+        var rows = await restGet('/' + LF.config.table +
+          '?select=' + encodeURIComponent(PUBLIC_COLS) +
+          '&order=created_at.desc&limit=1000');
+        if (!Array.isArray(rows)) throw new Error('直连返回体不是数组');
+        items = rows.map(rowToItem);
+        LF.api.lastSync = { ok: true, via: 'rest', sdk: why(sdkErr) };
+        saveCache(items);
+        LF.api.setStatus('☁️ 已连接云端（直连）', true, 'SDK 不可用，已改用直连 REST：' + why(sdkErr));
+        return items;
+      } catch (e2) {
+        var detail = 'SDK：' + why(sdkErr) + ' ｜ 直连：' + why(e2);
+        console.error('[api] listItems failed', { sdk: sdkErr, rest: e2 });
+        LF.api.lastSync = { ok: false, via: 'cache', sdk: why(sdkErr), rest: why(e2) };
+        LF.api.setStatus('⚠️ 云端同步失败，使用本地缓存', false, detail);
+        return loadCache();
+      }
+    }
+
+    LF.api.lastSync = { ok: true, via: 'sdk' };
+    saveCache(items);
+    LF.api.setStatus('☁️ 已连接云端', true);
+    return items;
   };
 
   LF.api.createItem = async function (item) {
@@ -536,11 +632,14 @@
     }
   };
 
-  /** 默认实现，ui.js 加载后会覆盖成真正的状态条渲染 */
-  LF.api.setStatus = function (text, ok) {
+  /** 默认实现，ui.js 加载后会覆盖成真正的状态条渲染
+   *  第三个参数 detail：悬停可见的具体原因（SDK 没加载 / 401 / 超时…），
+   *  不占状态条宽度，但排查时不用再开控制台。 */
+  LF.api.setStatus = function (text, ok, detail) {
     var el = document.getElementById('cloud-status');
     if (!el) return;
     el.textContent = text;
     el.className = 'sync-flag ' + (ok ? 'cloud-ok' : 'cloud-no');
+    if (detail) el.title = detail; else el.removeAttribute('title');
   };
 })();

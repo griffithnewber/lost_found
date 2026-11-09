@@ -42,11 +42,14 @@
     });
   };
 
-  LF.ui.setStatus = function (text, ok) {
+  LF.ui.setStatus = function (text, ok, detail) {
     var el = document.getElementById('cloud-status');
     if (!el) return;
     el.textContent = text;
     el.className = 'sync-flag ' + (ok ? 'cloud-ok' : 'cloud-no');
+    // 具体的失败原因（SDK 未加载 / 401 / 超时）放 title：状态条太窄，写不下，
+    // 但排查时鼠标一悬停就能看到，不用开控制台。
+    if (detail) el.title = detail; else el.removeAttribute('title');
   };
   LF.api.setStatus = LF.ui.setStatus; // 让数据层用统一的渲染
 

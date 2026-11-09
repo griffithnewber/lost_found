@@ -4,13 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>失物招领 · 广场</title>
-<!-- WorkBuddy 云服务 SDK（CDN 全局形式） -->
-<script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
-<link rel="stylesheet" href="assets/styles.css?v=20261109f">
-<link rel="stylesheet" href="assets/contact.css?v=20261109f">
-<link rel="stylesheet" href="assets/square.css?v=20261109f">
-<link rel="stylesheet" href="assets/map.css?v=20261109f">
-<link rel="stylesheet" href="assets/mailbox.css?v=20261109f">
+<!-- WorkBuddy 云服务 SDK：本地托管（2026-11-09）。
+     原来从 cdn.jsdelivr.net 拉外链，实测在部分网络里拉不到 → window.WorkBuddyCloud
+     不存在 → 广场报「云端同步失败」。SDK 只剩 71KB，放 assets/vendor 里跟着站点一起发，
+     彻底去掉这个外部依赖；文件来自
+     https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js（0.1.4-dev）。
+     即便如此仍保留 api.js 里的直连 REST 兜底，两条保险。 -->
+<script src="assets/vendor/workbuddy-cloud-sdk.global.js?v=20261109g"></script>
+<link rel="stylesheet" href="assets/styles.css?v=20261109g">
+<link rel="stylesheet" href="assets/contact.css?v=20261109g">
+<link rel="stylesheet" href="assets/square.css?v=20261109g">
+<link rel="stylesheet" href="assets/map.css?v=20261109g">
+<link rel="stylesheet" href="assets/mailbox.css?v=20261109g">
 </head>
 <body>
 
@@ -119,18 +124,18 @@
      替换下面 gljs 链接里的 key= 占位符，并在 Key 的域名白名单里加上本站域名 -->
 <script src="https://map.qq.com/api/gljs?v=1.exp&key=GH5BZ-SFY3U-AN5VV-G2PBZ-F6JO2-TLFMW"></script>
 <!-- search.js / match.js / stats.js 已随检索与统计面板一起下线，不再引入 -->
-<script src="assets/config.js?v=20261109f"></script>
-<script src="assets/api.js?v=20261109f"></script>
-<script src="assets/ai.js?v=20261109f"></script>
-<script src="assets/ui.js?v=20261109f"></script>
-<script src="assets/zones.js?v=20261109f"></script>
-<script src="assets/map.js?v=20261109f"></script>
-<script src="assets/textsearch.js?v=20261109f"></script>
-<script src="assets/app.js?v=20261109f"></script>
-<script src="assets/contact.js?v=20261109f"></script>
-<script src="assets/square.js?v=20261109f"></script>
-<script src="assets/auth.js?v=20261109f"></script>
-<script src="assets/mailbox.js?v=20261109f"></script>
-<script src="assets/notify.js?v=20261109f"></script>
+<script src="assets/config.js?v=20261109g"></script>
+<script src="assets/api.js?v=20261109g"></script>
+<script src="assets/ai.js?v=20261109g"></script>
+<script src="assets/ui.js?v=20261109g"></script>
+<script src="assets/zones.js?v=20261109g"></script>
+<script src="assets/map.js?v=20261109g"></script>
+<script src="assets/textsearch.js?v=20261109g"></script>
+<script src="assets/app.js?v=20261109g"></script>
+<script src="assets/contact.js?v=20261109g"></script>
+<script src="assets/square.js?v=20261109g"></script>
+<script src="assets/auth.js?v=20261109g"></script>
+<script src="assets/mailbox.js?v=20261109g"></script>
+<script src="assets/notify.js?v=20261109g"></script>
 </body>
 </html>
