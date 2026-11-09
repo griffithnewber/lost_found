@@ -32,6 +32,7 @@
   LF.map = {};
 
   var container = null;
+  var uiLayer = null;               // 控件/信息卡的宿主（地图容器的兄弟层 .map-ui）
   var map = null;                   // TMap.Map 实例
   var itemOverlays = {};            // id -> overlay（物品）
   var locOverlays = [];             // 寄存点 overlays
@@ -128,13 +129,14 @@
     }
   }
 
-  /* 寄存点信息卡（点击寄存点弹出；同一张卡复用，点 × 或点别处收起） */
+  /* 寄存点信息卡（点击寄存点弹出；同一张卡复用，点 × 收起）
+     卡片挂在 .map-ui 兄弟层——挂在地图容器内部会被 SDK 的事件层吞掉点击 */
   function showLocPopup(l, z) {
-    var pop = container.querySelector('.loc-popup');
+    var pop = uiLayer.querySelector('.loc-popup');
     if (!pop) {
       pop = document.createElement('div');
       pop.className = 'loc-popup';
-      container.appendChild(pop);
+      uiLayer.appendChild(pop);
     }
     pop.innerHTML =
       '<button type="button" class="loc-close" aria-label="关闭">✕</button>' +
@@ -150,8 +152,8 @@
     });
   }
   function hideLocPopup() {
-    if (!container) return;
-    var pop = container.querySelector('.loc-popup');
+    if (!uiLayer) return;
+    var pop = uiLayer.querySelector('.loc-popup');
     if (pop) pop.classList.remove('show');
   }
 
@@ -276,24 +278,37 @@
     }
     ready = true;
 
+    // 控件宿主：优先用 index.html 预置的 .map-ui 兄弟层（不被 SDK 吞点击）
+    uiLayer = container.parentNode && container.parentNode.querySelector('.map-ui');
+    if (!uiLayer) {
+      uiLayer = document.createElement('div');
+      uiLayer.className = 'map-ui';
+      (container.parentNode || container).appendChild(uiLayer);
+    }
+
     // 覆盖按钮：寄存点图层开关 + 复位 + 手势提示
     var bar = document.createElement('div');
     bar.innerHTML =
       '<button type="button" class="map-btn map-btn-pickup active" id="map-pickup-toggle" title="显示/隐藏寄存点">📍 寄存点</button>' +
       '<button type="button" class="map-btn map-btn-reset" id="map-reset" title="回到全图">⤢ 复位</button>' +
       '<div class="map-hint">电脑 Ctrl+滚轮缩放 · 手机双指捏合 · 拖拽平移 · 点标记看记录</div>';
-    container.appendChild(bar);
+    uiLayer.appendChild(bar);
 
-    container.querySelector('#map-pickup-toggle').addEventListener('click', function () {
+    uiLayer.querySelector('#map-pickup-toggle').addEventListener('click', function () {
       showPickup = !showPickup;
       this.classList.toggle('active', showPickup);
       drawZones();
     });
-    container.querySelector('#map-reset').addEventListener('click', function () {
+    uiLayer.querySelector('#map-reset').addEventListener('click', function () {
+      var home = latLng(LF.zones.center);
       try {
-        map.easeTo({ center: latLng(LF.zones.center), zoom: LF.zones.zoom, duration: 400 });
+        if (typeof map.easeTo === 'function') {
+          map.easeTo({ center: home, zoom: LF.zones.zoom, duration: 400 });
+        } else {
+          throw new Error('no easeTo');
+        }
       } catch (e) {
-        try { map.setCenter(latLng(LF.zones.center)); map.setZoom(LF.zones.zoom); } catch (e2) {}
+        try { map.setCenter(home); map.setZoom(LF.zones.zoom); } catch (e2) {}
       }
     });
 
@@ -315,7 +330,7 @@
   };
   LF.map.setShowPickup = function (v) {
     showPickup = !!v;
-    var btn = container && container.querySelector('#map-pickup-toggle');
+    var btn = uiLayer && uiLayer.querySelector('#map-pickup-toggle');
     if (btn) btn.classList.toggle('active', showPickup);
     drawZones();
   };

@@ -9,12 +9,22 @@
 .map-card .map-title { font-size: 13px; font-weight: 600; color: #444; }
 .map-card .map-sub { font-size: 12px; color: #999; margin-left: auto; }
 
+.campus-map-wrap { position: relative; }
+
 #campus-map {
   position: relative; border-radius: 12px; overflow: hidden;
   border: 1px solid #E3EBF7; background: #F4F8FC;
   height: 420px;                    /* 腾讯地图容器必须有固定高度 */
   touch-action: pan-y;              /* 单指竖滑默认滚页面，捏合/拖拽由 SDK 处理 */
+  z-index: 0;                       /* 自成堆叠上下文：SDK 内部图层再高也出不了这个盒子 */
 }
+
+/* 控件/信息卡统一挂在 .map-ui（地图容器的兄弟层），保证点击不被 SDK 吞掉 */
+.map-ui {
+  position: absolute; inset: 0; z-index: 10;
+  pointer-events: none;             /* 图层本身透明，子元素单独放开 */
+}
+.map-btn, .map-hint, .loc-popup { pointer-events: auto; }
 #campus-map td, #campus-map .tpl-container { font-family: inherit; }
 
 /* ---- Key 未配置兜底 ---- */
